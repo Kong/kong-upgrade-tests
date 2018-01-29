@@ -1,31 +1,44 @@
 [
-  [ "base_service", "POST", "/services", {
-      "host": "example-service.com",
-      "path": "/foo"
-  }],
-
-  [ "service_with_url", "POST", "/services", {
-    "url": "http://example-service2.com/bar"
-  }],
-
-  [ "hosts_route", "POST", "/routes", {
-    "hosts": [ "example-route.com" ],
-    "*service": { "*id": "base_service.id" }
-  }],
-
-  [ "methods_route", "POST", "/routes", {
-    "methods": [ "GET" ],
-    "*service": { "*id": "service_with_url.id" }
-  }],
-
   [ "simple_api", "POST", "/apis", {
-    "name": "simple_api_2",
-    "hosts": [ "example-api.com" ],
-    "upstream_url": "http://example-api.com/api"
+    "name": "simple_api",
+    "hosts": [ "simple-api.com" ],
+    "upstream_url": "http://simple-api.com/api"
   }],
+
+  [ "complex_api", "POST", "/apis", {
+    "name": "complex_api",
+    "hosts": "complex-api.com",
+    "methods": "GET",
+    "uris": "/secret, /public",
+    "upstream_url": "http://complex-api.com/api"
+  }],
+
+  [ "consumer_1", "POST", "/consumers", { "username": "consumer_1" } ],
+  [ "consumer_2", "POST", "/consumers", { "username": "consumer_2" } ],
+  [ "consumer_3", "POST", "/consumers", { "username": "consumer_3" } ],
 
   [ "_", "POST", "/plugins", {
     "name": "key-auth",
     "*api_id": "simple_api.id"
+  }],
+
+  [ "_", "POST", "/plugins", {
+    "name": "request-size-limiting",
+    "*consumer_id": "consumer_2.id",
+    "config": {
+      "allowed_payload_size": 1
+    }
+  }],
+
+  [ "_", "POST", "/plugins", {
+    "name": "request-termination",
+    "*api_id": "complex_api.id",
+    "*consumer_id": "consumer_3.id",
+    "config": {
+      "status_code": 403,
+      "message": "Mellow greetings. What seems to be your boogle?"
+    }
   }]
+
+
 ]
