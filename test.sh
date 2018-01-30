@@ -120,7 +120,8 @@ main() {
 
 
 
-        kong stop --vv >$log_file 2>&1
+        kong stop --vv >$log_file 2>&1 \
+            || show_error "failed to stop kong with: $?"
 
         echo "Base version ready, stopping Kong"
         echo
@@ -136,8 +137,13 @@ main() {
             || show_error "install kong target version failed with: $?"
 
         # TEST: run migrations between base and target version
-
+        echo "TEST: running target version migrations"
+        kong migrations up --vv \
+            || failed_test "'kong migrations up' failed with: $?"
     popd
+
+    echo
+    echo "Success"
 
     cleanup
 }
@@ -192,6 +198,14 @@ wrong_usage() {
     echo "Invalid usage: $1"        >&2
     echo                            >&2
     show_help
+    exit 1
+}
+
+failed_test() {
+    cleanup
+    echo "FAILED: $1"               >&2
+    echo "  see logs at: $log_file" >&2
+    echo                            >&2
     exit 1
 }
 
