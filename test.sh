@@ -3,6 +3,7 @@
 # kong test instance configuration
 DATABASE=postgres
 ADMIN_LISTEN=127.0.0.1:18001
+PROXY_LISTEN=127.0.0.1:18000
 POSTGRES_HOST=127.0.0.1
 POSTGRES_PORT=5432
 POSTGRES_DATABASE=kong_upgrade_path_tests
@@ -108,6 +109,8 @@ main() {
     #       ├── kong-0.11.2     -> short-lived checkout of 0.11.2
     #       └── kong-0.12.1     -> short-lived checkout of 0.12.1
 
+    echo "Preparing repositories..."
+
     prepare_repo $base_version
     base_repo_dir=$tmp_dir/$tmp_repo_name
 
@@ -128,60 +131,98 @@ main() {
         export KONG_PG_DATABASE=$POSTGRES_DATABASE
     fi
 
+    ###########################
     # Install Kong Base version
-
+    ###########################
     pushd $base_repo_dir
         # hard-coded version, informative only (this patch should seldom need to change)
         patch -p1 < $root/patches/kong-0.12.1-no_openresty_version_check.patch >$log_file 2>&1\
             || show_error "failed to apply patch to Kong: $?"
 
+        echo
         echo "Installing Kong base version ($base_version)"
         make dev >$log_file 2>&1 \
             || show_error "install Kong base version failed with: $?"
-
-        echo "Running base version migrations"
-        kong migrations up --vv >$log_file 2>&1 \
-            || show_error "Kong base version migration failed with: $?"
-
-        # start Kong and populate it
-        echo "Starting Kong base version"
-        kong start --vv >$log_file 2>&1 \
-            || show_error "Kong base start failed with: $?"
-
-        echo "Populating Kong base version..."
-        resty $root/populate.lua http://$ADMIN_LISTEN $root/$test_suite_dir >$log_file 2>&1 \
-            || show_error "populate.lua script faild with: $?"
-
-        kong stop --vv >$log_file 2>&1 \
-            || show_error "failed to stop Kong with: $?"
-
-        echo "Base version ready, stopping Kong"
-        echo
     popd
 
+    echo "Running base version migrations"
+    kong migrations up --vv >$log_file 2>&1 \
+        || show_error "Kong base version migration failed with: $?"
+
+    echo "Starting Kong base version"
+    kong start --vv >$log_file 2>&1 \
+        || show_error "Kong base start failed with: $?"
+
+    echo "Populating Kong base version..."
+    resty util/populate.lua http://$ADMIN_LISTEN $test_suite_dir >$log_file 2>&1 \
+        || show_error "populate.lua script faild with: $?"
+
+    kong stop --vv >$log_file 2>&1 \
+        || show_error "failed to stop Kong with: $?"
+
+    echo "Base version ready, stopping Kong"
+
+    #############################
+    # Install Kong target version
+    #############################
     pushd $target_repo_dir
         # hard-coded version, informative only (this patch should seldom need to change)
         patch -p1 < $root/patches/kong-0.12.1-no_openresty_version_check.patch >$log_file 2>&1 \
             || show_error "failed to apply patch to Kong: $?"
 
+        echo
         echo "Installing Kong target version ($target_version)"
         make dev >$log_file 2>&1 \
             || show_error "install Kong target version failed with: $?"
-
-        # TEST: run migrations between base and target version
-        echo
-        echo "TEST migrations up: run target version migrations"
-        kong migrations up --v \
-            || failed_test "'kong migrations up' failed with: $?"
-        echo "TEST migrations up: OK"
-
-        # TEST: start target version
-        echo
-        echo "TEST kong start: target version starts (migrated)"
-        kong start --v \
-            || failed_test "'kong start' failed with: $?"
-        echo "TEST kong start: OK"
     popd
+
+    #######
+    # TESTS
+    #######
+
+    # TEST: run migrations between base and target version
+    echo
+    echo "TEST migrations up: run target version migrations"
+    kong migrations up --v \
+        || failed_test "'kong migrations up' failed with: $?"
+    echo "OK"
+
+    # TEST: start target version
+    echo
+    echo "TEST kong start: target version starts (migrated)"
+    kong start --v \
+        || failed_test "'kong start' failed with: $?"
+    echo "OK"
+
+    # TEST: run admin_test.lua if exists
+    if [[ -f "$test_suite_dir/admin_test.lua" ]]; then
+        echo
+        echo "TEST admin script: running admin script"
+        resty -e "$(cat util/test_helpers.lua)" \
+            $test_suite_dir/admin_test.lua \
+            http://$ADMIN_LISTEN \
+            http://$PROXY_LISTEN \
+            || failed_test "admin test script failed with: $?"
+        echo "OK"
+    else
+        echo
+        echo "TEST admin script: SKIP (no admin_test.lua script)"
+    fi
+
+    # TEST: run proxy_test.lua if exists
+    if [[ -f "$test_suite_dir/proxy_test.lua" ]]; then
+        echo
+        echo "TEST proxy script: running proxy script"
+        resty -e "$(cat util/test_helpers.lua)" \
+            $test_suite_dir/proxy_test.lua \
+            http://$ADMIN_LISTEN \
+            http://$PROXY_LISTEN \
+            || failed_test "proxy test script failed with: $?"
+        echo "OK"
+    else
+        echo
+        echo "TEST proxy script: SKIP (no proxy_test.lua script)"
+    fi
 
     echo
     echo "Success"
