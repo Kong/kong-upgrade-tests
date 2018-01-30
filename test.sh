@@ -95,6 +95,8 @@ main() {
         export KONG_PG_DATABASE=$POSTGRES_DATABASE
     fi
 
+    export KONG_PREFIX=$root/tmp/kong
+
     # Install Kong Base version
 
     pushd $base_repo_dir
