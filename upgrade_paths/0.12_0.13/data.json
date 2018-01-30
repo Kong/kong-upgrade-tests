@@ -1,0 +1,12 @@
+[
+  [ "simple_api", "POST", "/apis", {
+    "name": "simple_api_2",
+    "hosts": [ "example-api.com" ],
+    "upstream_url": "http://example-api.com/api"
+  }],
+
+  [ "_", "POST", "/plugins", {
+    "name": "key-auth",
+    "*api_id": "simple_api.id"
+  }]
+]

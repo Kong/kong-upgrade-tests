@@ -6,25 +6,30 @@ local cjson = require "cjson"
 
 local function exit(message, ...)
   local fmt = string.format
-  io.stderr:write(fmt(fmt("PARSE ERROR: %s\n", message), ...))
+  io.stderr:write(fmt(fmt("ERROR: %s\n", message), ...))
   os.exit(1)
+end
+
+
+local function show_usage()
+  exit("Usage: resty populate.lua http://kong-host:kong-port [upgrade_path]")
 end
 
 
 local function get_kong_host_and_port(param)
   if not param or param == "" then
-    exit("Usage: resty populate.lua http://kong-host:kong-port")
+    show_usage()
   end
 
   local parsed, err = url.parse(param)
   local host = parsed.host
   if not host then
-    exit("Could not parse host from provided url (%s). Error: %s", param, err)
+    exit("could not parse host from provided url (%s). Error: %s", param, err)
   end
 
   local port = tonumber(parsed.port)
   if not port then
-    exit("Could not parse port from provided url (%s)", param)
+    exit("could not parse port from provided url (%s)", param)
   end
 
   return host, port
@@ -33,9 +38,8 @@ end
 
 local function read_json_file(filepath)
   local f, err = io.open(filepath)
-
   if not f then
-    exit("Could not open file %s. Error: %s", filepath, err)
+    exit("could not open file: %s", err)
   end
 
   local str = f:read("*all")
@@ -43,7 +47,7 @@ local function read_json_file(filepath)
 
   local data, err2 = cjson.decode(str)
   if not data then
-    exit("Could not parse JSON from file %s. Error: %s",
+    exit("could not parse JSON from file %s. Error: %s",
          filepath, err2)
   end
 
@@ -84,11 +88,11 @@ local function parse_foreign_key_value(value, responses)
     end
     local response = responses[name]
     if not response then
-      exit("Could not find response %s when parsing %s", name, value)
+      exit("could not find response %s when parsing %s", name, value)
     end
     local field = response[field_name]
     if not field then
-      exit("Could not find the value of the field %s in the response named %s", field_name, name)
+      exit("could not find the value of the field %s in the response named %s", field_name, name)
     end
     return field
 
@@ -107,7 +111,7 @@ local function parse_foreign_key_value(value, responses)
     return result
   end
 
-  exit("Foreign key %s must be either a string or a table", value)
+  exit("foreign key %s must be either a string or a table", value)
 end
 
 
@@ -173,7 +177,7 @@ local function send_http_request(method, host, port, path, body, timeout)
   local httpc = assert(http.new())
   local ok, err = httpc:connect(host, port, timeout)
   if not ok then
-    exit("Could not connect to kong (%s:%s) - %s",
+    exit("could not connect to kong (%s:%s) - %s",
          host, port, err)
   end
 
@@ -190,17 +194,17 @@ local function send_http_request(method, host, port, path, body, timeout)
 
   local res_body, err3 = res:read_body()
   if not res_body then
-    exit("Could not read http response body: %s", err3)
+    exit("could not read http response body: %s", err3)
   end
 
   if res.status >= 300 then
-    exit("The request %s %s returned a non-success status %d. Body: %s ",
+    exit("the request %s %s returned a non-success status %d. Body: %s ",
          method, path, res.status, res_body)
   end
 
   local response, err4 = cjson.decode(res_body)
   if not response then
-    exit("Could not parse json response from '%s'. Error: %s",
+    exit("could not parse json response from '%s'. Error: %s",
          res_body, err4)
   end
 
@@ -211,7 +215,7 @@ end
 local function execute_requests(requests, host, port)
   local ok, len = is_sequence(requests)
   if not ok or len == 0 then
-    exit("Expected requests to be be an array")
+    exit("expected requests to be be an array")
   end
 
   local responses = {}
@@ -228,6 +232,12 @@ end
 ------
 
 local kong_host, kong_port = get_kong_host_and_port(arg[1])
-local requests = read_json_file("data.json")
+local upgrade_path = arg[2]
+if not upgrade_path then
+  show_usage()
+end
+
+local requests = read_json_file(upgrade_path .. "/data.json")
 execute_requests(requests, kong_host, kong_port)
+
 os.exit(0)
