@@ -100,7 +100,10 @@ main() {
     # Install Kong Base version
 
     pushd $base_repo_dir
-        # TODO: patch meta.lua file for OpenResty versions compatibility
+        # hard-coded version, informative only (this patch should seldom need to change)
+        patch -p1 < $root/patches/kong-0.12.1-no_openresty_version_check.patch >$log_file 2>&1\
+            || show_error "failed to apply patch to Kong: $?"
+
         echo "Installing Kong base version ($base_version)"
         make dev >$log_file 2>&1 \
             || show_error "install kong base version failed with: $?"
@@ -124,7 +127,10 @@ main() {
     popd
 
     pushd $target_repo_dir
-        # TODO: patch meta.lua file for OpenResty versions compatibility
+        # hard-coded version, informative only (this patch should seldom need to change)
+        patch -p1 < $root/patches/kong-0.12.1-no_openresty_version_check.patch >$log_file 2>&1 \
+            || show_error "failed to apply patch to Kong: $?"
+
         echo "Installing Kong target version ($target_version)"
         make dev >$log_file 2>&1 \
             || show_error "install kong target version failed with: $?"
