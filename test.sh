@@ -4,9 +4,14 @@
 DATABASE=postgres
 ADMIN_LISTEN=127.0.0.1:18001
 PROXY_LISTEN=127.0.0.1:18000
+
 POSTGRES_HOST=127.0.0.1
 POSTGRES_PORT=5432
 POSTGRES_DATABASE=kong_upgrade_path_tests
+
+CASSANDRA_CONTACT_POINT=127.0.0.1
+CASSANDRA_PORT=9042
+CASSANDRA_KEYSPACE=kong_upgrade_path_tests
 
 # constants
 root=`pwd`
@@ -46,6 +51,10 @@ main() {
         case $key in
             -h|--help)
                 show_help
+                ;;
+            -d|--database)
+                DATABASE=$2
+                shift
                 ;;
             -b|--base)
                 base_version=$2
@@ -93,6 +102,14 @@ main() {
         wrong_usage "base and target version should be different"
     fi
 
+    case $DATABASE in
+        postgres|cassandra)
+            ;;
+        *)
+            wrong_usage "unknown database: $DATABASE - check with your local Kong developer to add support for it"
+            ;;
+    esac
+
     rm -rf $tmp_dir
     mkdir -p $cache_dir $tmp_dir
 
@@ -133,6 +150,20 @@ main() {
         export KONG_PG_HOST=$POSTGRES_HOST
         export KONG_PG_PORT=$POSTGRES_PORT
         export KONG_PG_DATABASE=$POSTGRES_DATABASE
+    elif [[ "$DATABASE" == "cassandra" ]]; then
+        echo "Dropping Cassandra keyspace '$CASSANDRA_KEYSPACE'"
+        cqlsh --cqlversion=3.4.2 \
+            -e "DROP KEYSPACE $CASSANDRA_KEYSPACE" \
+            $CASSANDRA_CONTACT_POINT \
+            $CASSANDRA_PORT >$log_file 2>&1
+        if [[ "$?" -ne 0 && "$?" -ne 2 ]]; then
+            show_error "cqlsh drop keyspace failed with: $?"
+        fi
+
+        export KONG_DATABASE=$DATABASE
+        export KONG_CASSANDRA_CONTACT_POINTS=$CASSANDRA_CONTACT_POINT
+        export KONG_CASSANDRA_PORT=$CASSANDRA_PORT
+        export KONG_CASSANDRA_KEYSPACE=$CASSANDRA_KEYSPACE
     fi
 
     # Install Kong Base version
@@ -281,8 +312,8 @@ show_help() {
     echo "  TEST_SUITE         path to test suite"
     echo
     echo "Options:"
-    echo "  -d,--database      database"
-    echo "  -r,--repo          repository"
+    echo "  -d,--database      database (default: postgres)"
+    echo "  -r,--repo          repository (default: kong)"
     echo "  -f,--force         cleanup cache and force git clone"
     echo
 }
