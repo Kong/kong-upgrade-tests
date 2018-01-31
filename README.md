@@ -68,3 +68,9 @@ Examples:
  ./test.sh -r kong-ee -b 0.10.0 -t 0.11.0 upgrade_paths/0.10_to_0.12
 ```
 
+## TODO
+
+- Complete documentation
+- Configure Cassandra/PostgreSQL via ENV variables
+- Redirect to both stdout and log file
+- TAP
