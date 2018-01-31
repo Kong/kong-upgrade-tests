@@ -52,6 +52,7 @@ main() {
         case $key in
             -h|--help)
                 show_help
+                exit 0
                 ;;
             -d|--database)
                 DATABASE=$2
