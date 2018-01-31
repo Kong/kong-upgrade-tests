@@ -75,6 +75,8 @@ main() {
         wrong_usage "TEST_SUITE is not a directory: $test_suite_dir"
     fi
 
+    test_suite_dir=$(realpath $test_suite_dir)
+
     if [[ ! -f "$test_suite_dir/data.json" ]]; then
         wrong_usage "TEST_SUITE does not contain valid data.json"
     fi
@@ -92,6 +94,7 @@ main() {
     fi
 
     rm -rf $tmp_dir
+    mkdir -p $cache_dir $tmp_dir
 
     #kong prepare
     #kong health
@@ -109,7 +112,7 @@ main() {
     #       ├── kong-0.11.2     -> short-lived checkout of 0.11.2
     #       └── kong-0.12.1     -> short-lived checkout of 0.12.1
 
-    echo "Preparing repositories..."
+    clone_or_pull_repo
 
     prepare_repo $base_version
     base_repo_dir=$tmp_dir/$tmp_repo_name
@@ -120,6 +123,7 @@ main() {
     # setup database
 
     if [[ "$DATABASE" == "postgres" ]]; then
+        echo "Dropping PostgreSQL database '$POSTGRES_DATABASE'"
         dropdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE \
             || show_error "dropdb failed with: $?"
         createdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE >$log_file 2>&1 \
@@ -131,73 +135,55 @@ main() {
         export KONG_PG_DATABASE=$POSTGRES_DATABASE
     fi
 
-    ###########################
     # Install Kong Base version
-    ###########################
+    install_kong $base_version $base_repo_dir
+
     pushd $base_repo_dir
-        # hard-coded version, informative only (this patch should seldom need to change)
-        patch -p1 < $root/patches/kong-0.12.1-no_openresty_version_check.patch >$log_file 2>&1\
-            || show_error "failed to apply patch to Kong: $?"
+        echo "Running $base_version migrations"
+        bin/kong migrations up --vv >$log_file 2>&1 \
+            || show_error "Kong base version migration failed with: $?"
 
-        echo
-        echo "Installing Kong base version ($base_version)"
-        make dev >$log_file 2>&1 \
-            || show_error "install Kong base version failed with: $?"
+        echo "Starting Kong $base_version"
+        bin/kong start --vv >$log_file 2>&1 \
+            || show_error "Kong base start failed with: $?"
+
+        echo "Populating Kong $base_version"
+        resty $root/util/populate.lua http://$ADMIN_LISTEN $test_suite_dir >$log_file 2>&1 \
+            || show_error "populate.lua script faild with: $?"
+
+        bin/kong stop --vv >$log_file 2>&1 \
+            || show_error "failed to stop Kong with: $?"
+
+        echo "$base_version instance ready, stopping Kong"
     popd
 
-    echo "Running base version migrations"
-    kong migrations up --vv >$log_file 2>&1 \
-        || show_error "Kong base version migration failed with: $?"
-
-    echo "Starting Kong base version"
-    kong start --vv >$log_file 2>&1 \
-        || show_error "Kong base start failed with: $?"
-
-    echo "Populating Kong base version..."
-    resty util/populate.lua http://$ADMIN_LISTEN $test_suite_dir >$log_file 2>&1 \
-        || show_error "populate.lua script faild with: $?"
-
-    kong stop --vv >$log_file 2>&1 \
-        || show_error "failed to stop Kong with: $?"
-
-    echo "Base version ready, stopping Kong"
-
-    #############################
     # Install Kong target version
-    #############################
-    pushd $target_repo_dir
-        # hard-coded version, informative only (this patch should seldom need to change)
-        patch -p1 < $root/patches/kong-0.12.1-no_openresty_version_check.patch >$log_file 2>&1 \
-            || show_error "failed to apply patch to Kong: $?"
-
-        echo
-        echo "Installing Kong target version ($target_version)"
-        make dev >$log_file 2>&1 \
-            || show_error "install Kong target version failed with: $?"
-    popd
+    install_kong $target_version $target_repo_dir
 
     #######
     # TESTS
     #######
 
-    # TEST: run migrations between base and target version
-    echo
-    echo "TEST migrations up: run target version migrations"
-    kong migrations up --v \
-        || failed_test "'kong migrations up' failed with: $?"
-    echo "OK"
+    pushd $target_repo_dir
+        # TEST: run migrations between base and target version
+        echo
+        echo "TEST migrations up: run $target_version migrations"
+        bin/kong migrations up --v \
+            || failed_test "'kong migrations up' failed with: $?"
+        echo "OK"
 
-    # TEST: start target version
-    echo
-    echo "TEST kong start: target version starts (migrated)"
-    kong start --v \
-        || failed_test "'kong start' failed with: $?"
-    echo "OK"
+        # TEST: start target version
+        echo
+        echo "TEST kong start: $target_version starts (migrated)"
+        bin/kong start --v \
+            || failed_test "'kong start' failed with: $?"
+        echo "OK"
+    popd
 
     # TEST: run admin_test.lua if exists
+    echo
+    echo "TEST admin script"
     if [[ -f "$test_suite_dir/admin_test.lua" ]]; then
-        echo
-        echo "TEST admin script: running admin script"
         resty -e "$(cat util/test_helpers.lua)" \
             $test_suite_dir/admin_test.lua \
             http://$ADMIN_LISTEN \
@@ -205,14 +191,13 @@ main() {
             || failed_test "admin test script failed with: $?"
         echo "OK"
     else
-        echo
-        echo "TEST admin script: SKIP (no admin_test.lua script)"
+        echo "SKIP"
     fi
 
     # TEST: run proxy_test.lua if exists
+    echo
+    echo "TEST proxy script"
     if [[ -f "$test_suite_dir/proxy_test.lua" ]]; then
-        echo
-        echo "TEST proxy script: running proxy script"
         resty -e "$(cat util/test_helpers.lua)" \
             $test_suite_dir/proxy_test.lua \
             http://$ADMIN_LISTEN \
@@ -220,8 +205,7 @@ main() {
             || failed_test "proxy test script failed with: $?"
         echo "OK"
     else
-        echo
-        echo "TEST proxy script: SKIP (no proxy_test.lua script)"
+        echo "SKIP"
     fi
 
     echo
@@ -230,35 +214,62 @@ main() {
     cleanup
 }
 
-prepare_repo() {
-    version=$1
-    tmp_repo_name=$repo-$version
-
-    mkdir -p $cache_dir $tmp_dir
-
+clone_or_pull_repo() {
     if [[ ! -d "$cache_dir/$repo" ]]; then
         pushd $cache_dir
-            echo "cloning git@github.com:kong/$repo.git..."
+            echo "Cloning git@github.com:kong/$repo.git"
             git clone git@github.com:kong/$repo.git $repo >$log_file 2>&1 \
                 || show_error "git clone failed with: $?"
         popd
     else
         pushd $cache_dir/$repo
+            echo "Pulling git@github.com:kong/$repo.git"
             git pull >$log_file 2>&1
         popd
     fi
+}
+
+prepare_repo() {
+    version=$1
+    tmp_repo_name=$repo-$version
 
     pushd $tmp_dir
         cp -R $cache_dir/$repo $tmp_repo_name >$log_file 2>&1
         pushd $tmp_repo_name
            git checkout $version >$log_file 2>&1 \
-               || { co_exit=$?; rm -rf $tmp_repo_name; show_error "git checkout to '$version' failed with: $?"; }
+               || { co_exit=$?; rm -rf $tmp_repo_name; show_error "git checkout to '$version' failed with: $co_exit"; }
         popd
     popd
 }
 
+install_kong() {
+    version=$1
+    dir=$2
+
+    echo
+    echo "Installing Kong version $version"
+
+    pushd $dir
+        major_version=`echo $version | sed 's/\.[0-9]*$//g'`
+        if [[ -f "$root/patches/kong-$version-no_openresty_version_check.patch" ]]; then
+            echo "Applying kong-$version-no_openresty_version_check patch to Kong $version"
+            patch -p1 < $root/patches/kong-$version-no_openresty_version_check.patch >$log_file 2>&1\
+                || show_error "failed to apply patch: $?"
+        elif [[ -f "$root/patches/kong-$major_version-no_openresty_version_check.patch" ]]; then
+            echo "Applying kong-$major_version-no_openresty_version_check patch to Kong $version"
+            patch -p1 < $root/patches/kong-$major_version-no_openresty_version_check.patch >$log_file 2>&1\
+                || show_error "failed to apply patch: $?"
+        else
+            echo "No kong-no_openresty_version_check patch to apply to Kong $version"
+        fi
+
+        make dev >$log_file 2>&1 \
+            || show_error "installing Kong failed with: $?"
+    popd
+}
+
 cleanup() {
-    kong stop >/dev/null 2>&1
+    kill `cat $KONG_PREFIX/pids/nginx.pid` >dev/null 2>&1
 }
 
 show_help() {
