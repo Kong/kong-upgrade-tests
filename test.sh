@@ -33,6 +33,7 @@ target_repo_dir=
 
 export KONG_PREFIX=$root/tmp/kong
 export KONG_ADMIN_LISTEN=$ADMIN_LISTEN
+export KONG_PROXY_LISTEN=$PROXY_LISTEN
 
 
 main() {
@@ -300,7 +301,7 @@ install_kong() {
 }
 
 cleanup() {
-    kill `cat $KONG_PREFIX/pids/nginx.pid` >dev/null 2>&1
+    kill `cat $KONG_PREFIX/pids/nginx.pid` >/dev/null 2>&1
 }
 
 show_help() {
