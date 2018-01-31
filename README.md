@@ -25,18 +25,18 @@ inspire yourself from the existing upgrade paths tests to write your own.
 
 This script will do the following:
 
-    1. Install a base version
-    2. Migrate a test database to the base version
-    3. Start Kong
-    4. Populate it via the `data.json` file (declaratively)
-    5. Stop Kong
-    6. Install the target version
-    7. **Run the migrations** -> on non success, we caught an error
-    8. Start Kong
-    8. **Run a script against the Admin API** -> verify the migration left the data in the desired state
-    9. **Run a script against the proxy** -> verify the behavior of the proxy once migrated
-    10. Stop Kong
-    11. Cleanup
+1. Install a base version
+2. Migrate a test database to the base version
+3. Start Kong
+4. Populate it via the `data.json` file (declaratively)
+5. Stop Kong
+6. Install the target version
+7. **Run the migrations** -> on non success, we caught an error
+8. Start Kong
+8. **Run a script against the Admin API** -> verify the migration left the data in the desired state
+9. **Run a script against the proxy** -> verify the behavior of the proxy once migrated
+10. Stop Kong
+11. Cleanup
 
 ## Usage
 
@@ -49,13 +49,22 @@ Arguments:
   TEST_SUITE         path to test suite
 
 Options:
-  -d,--database      database
-  -r,--repo          repository
+  -d,--database      database (default: postgres)
+  -r,--repo          repository (default: kong)
   -f,--force         cleanup cache and force git clone
 ```
 
-Example:
+Examples:
 ```
- ./test.sh -b 0.10.0 -t 0.11.1 upgrade_paths/0.10_0.11
+ ./test.sh -b 0.10.0 -t 0.11.1 upgrade_paths/0.10_to_0.11
+ ./test.sh -b 0.10.0 -t 0.11.1 upgrade_paths/0.10_to_0.11_edge_case_foo
+
+ ./test.sh -d cassandra -b 0.10.0 -t 0.11.1 upgrade_paths/0.10_to_0.11
+
+ ./test.sh -b 0.10.0 -t 0.12.0 upgrade_paths/0.10_to_0.12
+ ./test.sh -b 0.10.0 -t 0.12.1 upgrade_paths/0.10_to_0.12
+
+ ./test.sh -r kong-private -b 0.10.0 -t 0.11.0 upgrade_paths/0.10_to_0.12
+ ./test.sh -r kong-ee -b 0.10.0 -t 0.11.0 upgrade_paths/0.10_to_0.12
 ```
 
