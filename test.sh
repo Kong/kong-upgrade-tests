@@ -273,8 +273,8 @@ main() {
 
 parse_version_arg() {
     if [[ $1 =~ : ]]; then
-        ret1=`echo $1 | cut -d':' -f2` # version
-        ret2=`echo $1 | cut -d':' -f1` # repo
+        ret1=`builtin echo $1 | cut -d':' -f2` # version
+        ret2=`builtin echo $1 | cut -d':' -f1` # repo
     else
         ret1=$1
     fi
