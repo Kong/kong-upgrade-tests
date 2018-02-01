@@ -225,14 +225,14 @@ main() {
         # TEST: run migrations between base and target version
         echo
         echo $test_sep "TEST migrations up: run $target_version migrations"
-        bin/kong migrations up --v >&5 \
+        bin/kong migrations up --v >&5 2>&6 \
             || failed_test "'kong migrations up' failed with: $?"
         echo "OK"
 
         # TEST: start target version
         echo
         echo $test_sep "TEST kong start: $target_version starts (migrated)"
-        bin/kong start --v >&5 \
+        bin/kong start --v >&5 2>&6 \
             || failed_test "'kong start' failed with: $?"
         echo "OK"
     popd
@@ -244,7 +244,7 @@ main() {
         resty -e "$(cat util/test_helpers.lua)" \
             $test_suite_dir/admin_test.lua \
             http://$ADMIN_LISTEN \
-            http://$PROXY_LISTEN >&5 \
+            http://$PROXY_LISTEN >&5 2>&6 \
             || failed_test "admin test script failed with: $?"
         echo "OK"
     else
@@ -258,7 +258,7 @@ main() {
         resty -e "$(cat util/test_helpers.lua)" \
             $test_suite_dir/proxy_test.lua \
             http://$ADMIN_LISTEN \
-            http://$PROXY_LISTEN >&5 \
+            http://$PROXY_LISTEN >&5 2>&6 \
             || failed_test "proxy test script failed with: $?"
         echo "OK"
     else
