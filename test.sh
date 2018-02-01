@@ -17,7 +17,8 @@ CASSANDRA_KEYSPACE=kong_upgrade_path_tests
 root=`pwd`
 cache_dir=$root/cache
 tmp_dir=$root/tmp
-log_file=$root/err.log
+log_file=$root/run.log
+test_sep="==>"
 
 # arguments
 base_version=
@@ -33,15 +34,20 @@ target_repo_dir=
 ret1=
 ret2=
 
-
 export KONG_PREFIX=$root/tmp/kong
 export KONG_ADMIN_LISTEN=$ADMIN_LISTEN
 export KONG_PROXY_LISTEN=$PROXY_LISTEN
 
+# clear log file for this run
+echo "" > $log_file
+
+# save original stdout and stderr fds
+exec 5<&1
+exec 6<&2
+## our log file is stdout and stderr
+exec 1>$log_file 2>&1
 
 main() {
-    echo "" > $log_file
-
     if ! [ -x "$(command -v luarocks)" ]; then
         show_error "'luarocks' is not available in \$PATH"
     fi
@@ -162,8 +168,8 @@ main() {
     if [[ "$DATABASE" == "postgres" ]]; then
         echo "Dropping PostgreSQL database '$POSTGRES_DATABASE'"
         dropdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE \
-            || show_error "dropdb failed with: $?"
-        createdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE >$log_file 2>&1 \
+             || show_error "dropdb failed with: $?"
+        createdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE \
             || show_error "createdb failed with: $?"
 
         export KONG_DATABASE=$DATABASE
@@ -175,7 +181,7 @@ main() {
         cqlsh --cqlversion=3.4.2 \
             -e "DROP KEYSPACE $CASSANDRA_KEYSPACE" \
             $CASSANDRA_CONTACT_POINT \
-            $CASSANDRA_PORT >$log_file 2>&1
+            $CASSANDRA_PORT
         if [[ "$?" -ne 0 && "$?" -ne 2 ]]; then
             show_error "cqlsh drop keyspace failed with: $?"
         fi
@@ -191,18 +197,18 @@ main() {
 
     pushd $base_repo_dir
         echo "Running $base_version migrations"
-        bin/kong migrations up --vv >$log_file 2>&1 \
+        bin/kong migrations up --vv \
             || show_error "Kong base version migration failed with: $?"
 
         echo "Starting Kong $base_version"
-        bin/kong start --vv >$log_file 2>&1 \
+        bin/kong start --vv \
             || show_error "Kong base start failed with: $?"
 
         echo "Populating Kong $base_version"
-        resty $root/util/populate.lua http://$ADMIN_LISTEN $test_suite_dir >$log_file 2>&1 \
+        resty $root/util/populate.lua http://$ADMIN_LISTEN $test_suite_dir \
             || show_error "populate.lua script faild with: $?"
 
-        bin/kong stop --vv >$log_file 2>&1 \
+        bin/kong stop --vv \
             || show_error "failed to stop Kong with: $?"
 
         echo "$base_version instance ready, stopping Kong"
@@ -218,27 +224,27 @@ main() {
     pushd $target_repo_dir
         # TEST: run migrations between base and target version
         echo
-        echo "TEST migrations up: run $target_version migrations"
-        bin/kong migrations up --v \
+        echo $test_sep "TEST migrations up: run $target_version migrations"
+        bin/kong migrations up --v >&5 \
             || failed_test "'kong migrations up' failed with: $?"
         echo "OK"
 
         # TEST: start target version
         echo
-        echo "TEST kong start: $target_version starts (migrated)"
-        bin/kong start --v \
+        echo $test_sep "TEST kong start: $target_version starts (migrated)"
+        bin/kong start --v >&5 \
             || failed_test "'kong start' failed with: $?"
         echo "OK"
     popd
 
     # TEST: run admin_test.lua if exists
     echo
-    echo "TEST admin script"
+    echo $test_sep "TEST admin script"
     if [[ -f "$test_suite_dir/admin_test.lua" ]]; then
         resty -e "$(cat util/test_helpers.lua)" \
             $test_suite_dir/admin_test.lua \
             http://$ADMIN_LISTEN \
-            http://$PROXY_LISTEN \
+            http://$PROXY_LISTEN >&5 \
             || failed_test "admin test script failed with: $?"
         echo "OK"
     else
@@ -247,12 +253,12 @@ main() {
 
     # TEST: run proxy_test.lua if exists
     echo
-    echo "TEST proxy script"
+    echo $test_sep "TEST proxy script"
     if [[ -f "$test_suite_dir/proxy_test.lua" ]]; then
         resty -e "$(cat util/test_helpers.lua)" \
             $test_suite_dir/proxy_test.lua \
             http://$ADMIN_LISTEN \
-            http://$PROXY_LISTEN \
+            http://$PROXY_LISTEN >&5 \
             || failed_test "proxy test script failed with: $?"
         echo "OK"
     else
@@ -280,14 +286,14 @@ clone_or_pull_repo() {
     if [[ ! -d "$cache_dir/$repo" ]]; then
         pushd $cache_dir
             echo "Cloning git@github.com:kong/$repo.git"
-            ssh-agent bash -c "ssh-add ~/.ssh/$ssh_key; \
-                git clone git@github.com:kong/$repo.git $repo >$log_file 2>&1" \
+            ssh-agent bash -c "ssh-add $ssh_key && \
+                git clone git@github.com:kong/$repo.git $repo" \
                     || show_error "git clone failed with: $?"
         popd
     else
         pushd $cache_dir/$repo
             echo "Pulling git@github.com:kong/$repo.git"
-            git pull >$log_file 2>&1
+            git pull
         popd
     fi
 }
@@ -295,12 +301,13 @@ clone_or_pull_repo() {
 prepare_repo() {
     repo=$1
     version=$2
-    tmp_repo_name=$repo-`echo $version | sed 's/\//_/g'`
+    tmp_repo_name=$repo-`builtin echo $version | sed 's/\//_/g'`
 
     pushd $tmp_dir
-        cp -R $cache_dir/$repo $tmp_repo_name >$log_file 2>&1
+        cp -R $cache_dir/$repo $tmp_repo_name \
+            || show_error "cp failed with: $?"
         pushd $tmp_repo_name
-           git checkout $version >$log_file 2>&1 \
+           git checkout $version \
                || { co_exit=$?; rm -rf $tmp_repo_name; show_error "git checkout to '$version' failed with: $co_exit"; }
         popd
     popd
@@ -316,26 +323,26 @@ install_kong() {
     echo "Installing Kong version $version"
 
     pushd $dir
-        major_version=`echo $version | sed 's/\.[0-9]*$//g'`
+        major_version=`builtin echo $version | sed 's/\.[0-9]*$//g'`
         if [[ -f "$root/patches/kong-$version-no_openresty_version_check.patch" ]]; then
             echo "Applying kong-$version-no_openresty_version_check patch to Kong $version"
-            patch -p1 < $root/patches/kong-$version-no_openresty_version_check.patch >$log_file 2>&1\
+            patch -p1 < $root/patches/kong-$version-no_openresty_version_check.patch \
                 || show_error "failed to apply patch: $?"
         elif [[ -f "$root/patches/kong-$major_version-no_openresty_version_check.patch" ]]; then
             echo "Applying kong-$major_version-no_openresty_version_check patch to Kong $version"
-            patch -p1 < $root/patches/kong-$major_version-no_openresty_version_check.patch >$log_file 2>&1\
+            patch -p1 < $root/patches/kong-$major_version-no_openresty_version_check.patch \
                 || show_error "failed to apply patch: $?"
         else
             echo "No kong-no_openresty_version_check patch to apply to Kong $version"
         fi
 
-        make dev >$log_file 2>&1 \
+        make -k dev \
             || show_error "installing Kong failed with: $?"
     popd
 }
 
 cleanup() {
-    kill `cat $KONG_PREFIX/pids/nginx.pid 2>/dev/null` >/dev/null 2>&1
+    kill `cat $KONG_PREFIX/pids/nginx.pid 2>/dev/null` 2>/dev/null
 }
 
 show_help() {
@@ -354,26 +361,37 @@ show_help() {
 }
 
 wrong_usage() {
-    echo "Invalid usage: $1"        >&2
-    echo                            >&2
+    echo_err "Invalid usage: $1"
+    echo_err
     show_help
     exit 1
 }
 
 failed_test() {
     cleanup
-    echo "FAILED: $1"               >&2
-    echo "  see logs at: $log_file" >&2
-    echo                            >&2
+    echo_err "FAILED: $1"
+    echo_err "  see logs at: $log_file"
+    echo_err
     exit 1
 }
 
 show_error() {
     cleanup
-    echo "Error: $1"                >&2
-    echo "  see logs at: $log_file" >&2
-    echo                            >&2
+    echo_err "Error: $1"
+    echo_err "  see logs at: $log_file"
+    echo_err
     exit 1
+}
+
+echo() {
+    # we log to our log file and to our original stdout
+    builtin echo $@
+    builtin echo $@ >&5
+}
+
+echo_err() {
+    builtin echo $@
+    builtin echo $@ >&6
 }
 
 pushd() { builtin pushd $1 > /dev/null; }
