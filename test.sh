@@ -15,7 +15,6 @@ CASSANDRA_KEYSPACE=kong_upgrade_path_tests
 
 # constants
 root=`pwd`
-default_repo=kong
 cache_dir=$root/cache
 tmp_dir=$root/tmp
 log_file=$root/err.log
@@ -23,9 +22,10 @@ log_file=$root/err.log
 # arguments
 base_version=
 target_version=
-base_repo=
-target_repo=
+base_repo=kong
+target_repo=kong
 test_suite_dir=
+ssh_key=$HOME/.ssh/id_rsa
 
 # control variables
 base_repo_dir=
@@ -72,6 +72,10 @@ main() {
             -f|--force)
                 rm -rf $cache_dir
                 ;;
+            --ssh-key)
+                ssh_key=$2
+                shift
+                ;;
             *)
                 test_suite_dir=$key
                 break
@@ -112,12 +116,16 @@ main() {
     esac
 
     parse_version_arg $base_version
-    base_repo=$ret1
-    base_version=$ret2
+    base_version=$ret1
+    if [ -n "$ret2" ]; then
+        base_repo=$ret2
+    fi
 
     parse_version_arg $target_version
-    target_repo=$ret1
-    target_version=$ret2
+    target_version=$ret1
+    if [ -n "$ret2" ]; then
+        target_repo=$ret2
+    fi
 
     rm -rf $tmp_dir
     mkdir -p $cache_dir $tmp_dir
@@ -258,17 +266,12 @@ main() {
 }
 
 parse_version_arg() {
-    repo=$default_repo
-
     if [[ $1 =~ : ]]; then
-        repo=`echo $1 | cut -d':' -f1`
-        version=`echo $1 | cut -d':' -f2`
+        ret1=`echo $1 | cut -d':' -f2` # version
+        ret2=`echo $1 | cut -d':' -f1` # repo
     else
-        version=$1
+        ret1=$1
     fi
-
-    ret1=$repo
-    ret2=$version
 }
 
 clone_or_pull_repo() {
@@ -277,7 +280,7 @@ clone_or_pull_repo() {
     if [[ ! -d "$cache_dir/$repo" ]]; then
         pushd $cache_dir
             echo "Cloning git@github.com:kong/$repo.git"
-            ssh-agent bash -c "ssh-add ~/.ssh/id_rsa; \
+            ssh-agent bash -c "ssh-add ~/.ssh/$ssh_key; \
                 git clone git@github.com:kong/$repo.git $repo >$log_file 2>&1" \
                     || show_error "git clone failed with: $?"
         popd
@@ -346,6 +349,7 @@ show_help() {
     echo "Options:"
     echo "  -d,--database      database (default: postgres)"
     echo "  -f,--force         cleanup cache and force git clone"
+    echo "  --ssh-key          ssh key to use when cloning repositories"
     echo
 }
 
