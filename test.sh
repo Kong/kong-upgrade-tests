@@ -15,20 +15,23 @@ CASSANDRA_KEYSPACE=kong_upgrade_path_tests
 
 # constants
 root=`pwd`
+default_repo=kong
 cache_dir=$root/cache
 tmp_dir=$root/tmp
 log_file=$root/err.log
 
 # arguments
-repo=kong
 base_version=
 target_version=
-tmp_repo_name=
+base_repo=
+target_repo=
 test_suite_dir=
 
 # control variables
 base_repo_dir=
 target_repo_dir=
+ret1=
+ret2=
 
 
 export KONG_PREFIX=$root/tmp/kong
@@ -64,10 +67,6 @@ main() {
                 ;;
             -t|--target)
                 target_version=$2
-                shift
-                ;;
-            -r|--repo)
-                repo=$2
                 shift
                 ;;
             -f|--force)
@@ -112,6 +111,14 @@ main() {
             ;;
     esac
 
+    parse_version_arg $base_version
+    base_repo=$ret1
+    base_version=$ret2
+
+    parse_version_arg $target_version
+    target_repo=$ret1
+    target_version=$ret2
+
     rm -rf $tmp_dir
     mkdir -p $cache_dir $tmp_dir
 
@@ -131,13 +138,16 @@ main() {
     #       ├── kong-0.11.2     -> short-lived checkout of 0.11.2
     #       └── kong-0.12.1     -> short-lived checkout of 0.12.1
 
-    clone_or_pull_repo
+    clone_or_pull_repo $base_repo
+    if [[ "$base_repo" != "$target_repo" ]]; then
+        clone_or_pull_repo $target_repo
+    fi
 
-    prepare_repo $base_version
-    base_repo_dir=$tmp_dir/$tmp_repo_name
+    prepare_repo $base_repo $base_version
+    base_repo_dir=$ret1
 
-    prepare_repo $target_version
-    target_repo_dir=$tmp_dir/$tmp_repo_name
+    prepare_repo $target_repo $target_version
+    target_repo_dir=$ret1
 
     # setup database
 
@@ -247,12 +257,29 @@ main() {
     cleanup
 }
 
+parse_version_arg() {
+    repo=$default_repo
+
+    if [[ $1 =~ : ]]; then
+        repo=`echo $1 | cut -d':' -f1`
+        version=`echo $1 | cut -d':' -f2`
+    else
+        version=$1
+    fi
+
+    ret1=$repo
+    ret2=$version
+}
+
 clone_or_pull_repo() {
+    repo=$1
+
     if [[ ! -d "$cache_dir/$repo" ]]; then
         pushd $cache_dir
             echo "Cloning git@github.com:kong/$repo.git"
-            git clone git@github.com:kong/$repo.git $repo >$log_file 2>&1 \
-                || show_error "git clone failed with: $?"
+            ssh-agent bash -c "ssh-add ~/.ssh/id_rsa; \
+                git clone git@github.com:kong/$repo.git $repo >$log_file 2>&1" \
+                    || show_error "git clone failed with: $?"
         popd
     else
         pushd $cache_dir/$repo
@@ -263,8 +290,9 @@ clone_or_pull_repo() {
 }
 
 prepare_repo() {
-    version=$1
-    tmp_repo_name=$repo-$version
+    repo=$1
+    version=$2
+    tmp_repo_name=$repo-`echo $version | sed 's/\//_/g'`
 
     pushd $tmp_dir
         cp -R $cache_dir/$repo $tmp_repo_name >$log_file 2>&1
@@ -273,6 +301,8 @@ prepare_repo() {
                || { co_exit=$?; rm -rf $tmp_repo_name; show_error "git checkout to '$version' failed with: $co_exit"; }
         popd
     popd
+
+    ret1=$tmp_dir/$tmp_repo_name
 }
 
 install_kong() {
@@ -302,7 +332,7 @@ install_kong() {
 }
 
 cleanup() {
-    kill `cat $KONG_PREFIX/pids/nginx.pid` >/dev/null 2>&1
+    kill `cat $KONG_PREFIX/pids/nginx.pid 2>/dev/null` >/dev/null 2>&1
 }
 
 show_help() {
@@ -315,7 +345,6 @@ show_help() {
     echo
     echo "Options:"
     echo "  -d,--database      database (default: postgres)"
-    echo "  -r,--repo          repository (default: kong)"
     echo "  -f,--force         cleanup cache and force git clone"
     echo
 }
