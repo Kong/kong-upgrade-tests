@@ -385,13 +385,13 @@ show_error() {
 
 echo() {
     # we log to our log file and to our original stdout
-    builtin echo $@
-    builtin echo $@ >&5
+    builtin echo "$@"
+    builtin echo "$@" >&5
 }
 
 echo_err() {
-    builtin echo $@
-    builtin echo $@ >&6
+    builtin echo "$@"
+    builtin echo "$@" >&6
 }
 
 pushd() { builtin pushd $1 > /dev/null; }
