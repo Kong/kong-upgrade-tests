@@ -4,6 +4,8 @@
 DATABASE=postgres
 ADMIN_LISTEN=127.0.0.1:18001
 PROXY_LISTEN=127.0.0.1:18000
+ADMIN_LISTEN_SSL=127.0.0.1:18444
+PROXY_LISTEN_SSL=127.0.0.1:18443
 
 POSTGRES_HOST=127.0.0.1
 POSTGRES_PORT=5432
@@ -37,6 +39,8 @@ ret2=
 export KONG_PREFIX=$root/tmp/kong
 export KONG_ADMIN_LISTEN=$ADMIN_LISTEN
 export KONG_PROXY_LISTEN=$PROXY_LISTEN
+export KONG_ADMIN_LISTEN_SSL=$ADMIN_LISTEN_SSL
+export KONG_PROXY_LISTEN_SSL=$PROXY_LISTEN_SSL
 
 # clear log file for this run
 echo "" > $log_file
@@ -168,7 +172,7 @@ main() {
     if [[ "$DATABASE" == "postgres" ]]; then
         echo "Dropping PostgreSQL database '$POSTGRES_DATABASE'"
         dropdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE \
-             || show_error "dropdb failed with: $?"
+             || show_warning "dropdb failed with: $?"
         createdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE \
             || show_error "createdb failed with: $?"
 
@@ -183,7 +187,7 @@ main() {
             $CASSANDRA_CONTACT_POINT \
             $CASSANDRA_PORT
         if [[ "$?" -ne 0 && "$?" -ne 2 ]]; then
-            show_error "cqlsh drop keyspace failed with: $?"
+            show_warning "cqlsh drop keyspace failed with: $?"
         fi
 
         export KONG_DATABASE=$DATABASE
@@ -207,6 +211,8 @@ main() {
         echo "Populating Kong $base_version"
         resty $root/util/populate.lua http://$ADMIN_LISTEN $test_suite_dir \
             || show_error "populate.lua script faild with: $?"
+
+        run_lua_script "proxy base version" "proxy_base_test.lua"
 
         bin/kong stop --vv \
             || show_error "failed to stop Kong with: $?"
@@ -238,32 +244,10 @@ main() {
     popd
 
     # TEST: run admin_test.lua if exists
-    echo
-    echo $test_sep "TEST admin script"
-    if [[ -f "$test_suite_dir/admin_test.lua" ]]; then
-        resty -e "$(cat util/test_helpers.lua)" \
-            $test_suite_dir/admin_test.lua \
-            http://$ADMIN_LISTEN \
-            http://$PROXY_LISTEN >&5 2>&6 \
-            || failed_test "admin test script failed with: $?"
-        echo "OK"
-    else
-        echo "SKIP"
-    fi
+    run_lua_script "admin" "admin_test.lua"
 
     # TEST: run proxy_test.lua if exists
-    echo
-    echo $test_sep "TEST proxy script"
-    if [[ -f "$test_suite_dir/proxy_test.lua" ]]; then
-        resty -e "$(cat util/test_helpers.lua)" \
-            $test_suite_dir/proxy_test.lua \
-            http://$ADMIN_LISTEN \
-            http://$PROXY_LISTEN >&5 2>&6 \
-            || failed_test "proxy test script failed with: $?"
-        echo "OK"
-    else
-        echo "SKIP"
-    fi
+    run_lua_script "proxy target version" "proxy_test.lua"
 
     echo
     echo "Success"
@@ -336,9 +320,29 @@ install_kong() {
             echo "No kong-no_openresty_version_check patch to apply to Kong $version"
         fi
 
+        echo "Installing Kong..."
         make -k dev \
             || show_error "installing Kong failed with: $?"
     popd
+}
+
+run_lua_script() {
+    local name="$1"
+    local filename="$2"
+
+    echo $test_sep "TEST $name script"
+    if [[ -f "$test_suite_dir/$filename" ]]; then
+      resty -e "package.path = package.path .. ';' .. '$root/?.lua'" \
+            "$test_suite_dir/$filename" \
+            http://$ADMIN_LISTEN \
+            http://$PROXY_LISTEN \
+            http://$ADMIN_LISTEN_SSL \
+            http://$PROXY_LISTEN_SSL >&5 \
+            || failed_test "$name test script failed with: $?"
+        echo "OK"
+    else
+        echo "SKIP"
+    fi
 }
 
 cleanup() {
@@ -369,16 +373,25 @@ wrong_usage() {
 
 failed_test() {
     cleanup
-    echo_err "FAILED: $1"
-    echo_err "  see logs at: $log_file"
+    echo_err "Failed: $1"
+    builtin echo "  displaying last lines of: $log_file" >&6
+    builtin echo "  -----------------------------------" >&6
+    grep ERROR -A50 $log_file >&6 || tail $log_file >&6
     echo_err
     exit 1
 }
 
+show_warning() {
+    echo_err "Warning: $1"
+}
+
+
 show_error() {
     cleanup
     echo_err "Error: $1"
-    echo_err "  see logs at: $log_file"
+    builtin echo "  displaying last lines of: $log_file" >&6
+    builtin echo "  -----------------------------------" >&6
+    grep ERROR -A50  $log_file >&6 || tail $log_file >&6
     echo_err
     exit 1
 }
