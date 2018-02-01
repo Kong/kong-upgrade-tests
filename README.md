@@ -61,11 +61,12 @@ Examples:
 
  ./test.sh -d cassandra -b 0.10.0 -t 0.11.1 upgrade_paths/0.10_to_0.11
 
- ./test.sh -b 0.10.0 -t 0.12.0 upgrade_paths/0.10_to_0.12
- ./test.sh -b 0.10.0 -t 0.12.1 upgrade_paths/0.10_to_0.12
+ ./test.sh -b 0.11.0 -t 0.12.0 upgrade_paths/0.11_0.12
+ ./test.sh -b 0.11.0 -t 0.12.1 upgrade_paths/0.11_0.12
 
  ./test.sh -r kong-private -b 0.10.0 -t 0.11.0 upgrade_paths/0.10_to_0.12
  ./test.sh -r kong-ee -b 0.10.0 -t 0.11.0 upgrade_paths/0.10_to_0.12
+ ./test.sh -b kong:0.12.1 -t kong-private:0.13.0preview1 upgrade_paths/0.12_0.13
 ```
 
 ## TODO
