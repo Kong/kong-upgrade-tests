@@ -1,0 +1,342 @@
+[
+  [ "sanity check",
+    [ "admin", "GET", "/apis" ],
+    [ 200 ]
+  ],
+
+  [ "failure creating a service",
+    [ "admin", "POST", "/services", {} ],
+    [ 400, {
+      "code": 2,
+      "fields": {
+        "host": "required field missing"
+      },
+      "message": "schema violation (host: required field missing)",
+      "name": "schema violation"
+    } ]
+  ],
+
+  [ "service",
+    [ "admin", "POST", "/services", {
+      "url": "http://httpbin.org/anything"
+    } ],
+    [ 201, {
+      "%id": "[0-9a-fA-F\\-]+",
+      "%created_at": "\\d+",
+      "%updated_at": "\\d+",
+      "connect_timeout": 60000,
+      "host": "httpbin.org",
+      "name": null,
+      "path": "/anything",
+      "port": 80,
+      "protocol": "http",
+      "read_timeout": 60000,
+      "retries": 5,
+      "write_timeout": 60000
+    } ]
+  ],
+
+  [ "failure creating a route",
+     [ "admin", "POST", "/routes", {} ],
+     [ 400, {
+      "code": 2,
+      "fields": {
+          "@entity": [
+              "at least one of 'methods', 'hosts' or 'paths' must be non-empty"
+          ],
+          "service": "required field missing"
+      },
+      "message": "2 schema violations (at least one of 'methods', 'hosts' or 'paths' must be non-empty; service: required field missing)",
+      "name": "schema violation"
+     } ]
+  ],
+
+  [ "route",
+    [ "admin", "POST", "/routes", {
+      "hosts": [ "example.com" ],
+      "paths": [ "/request" ],
+      "service": {
+        "id": "#{service.id}"
+      }
+    } ],
+    [ 201, {
+      "%id": "[0-9a-fA-F\\-]+",
+      "%created_at": "\\d+",
+      "%updated_at": "\\d+",
+      "hosts": [
+        "example.com"
+      ],
+      "methods": null,
+      "paths": [ "/request" ],
+      "preserve_host": false,
+      "regex_priority": 0,
+      "protocols": [
+        "http",
+        "https"
+      ],
+      "service": {
+        "id": "#{service.id}"
+      },
+      "strip_path": true
+     } ]
+  ],
+
+  [ "proxy request to httpbin",
+    [ "proxy", "GET", "/request", "", { "Host": "example.com" } ],
+    [ 200, {
+      "args": {},
+      "data": "",
+      "files": {},
+      "form": {},
+      "headers": {
+        "Host": "httpbin.org",
+        "X-Forwarded-Host": "example.com"
+      },
+      "json": null,
+      "method": "GET",
+      "url": "http://example.com/anything"
+    } ]
+  ],
+
+  [ "expensive",
+    [ "admin", "POST", "/routes", {
+      "hosts": [ "example.com" ],
+      "paths": [ "/expensive" ],
+      "service": {
+        "id": "#{service.id}"
+      }
+    } ],
+
+    [ 201, {
+      "hosts": [
+        "example.com"
+      ],
+      "methods": null,
+      "paths": [
+        "/expensive"
+      ],
+      "preserve_host": false,
+      "regex_priority": 0,
+      "protocols": [
+        "http",
+        "https"
+      ],
+      "service": {
+        "id": "#{service.id}"
+      },
+      "strip_path": true
+    } ]
+  ],
+
+  [ "consumer",
+    [ "admin", "POST", "/consumers", { "username": "bob"} ],
+    [ 201, { "username": "bob" } ]
+  ],
+
+  [ "add credentials to consumer",
+    [ "admin", "POST", "/consumers/#{consumer.id}/key-auth", { "key": "secret" } ],
+    [ 201, {
+      "key": "secret",
+      "consumer_id": "#{consumer.id}"
+    } ]
+  ],
+
+  [ "configure key-auth for service",
+    [ "admin", "POST", "/plugins", {
+      "name": "key-auth",
+      "service_id": "#{service.id}"
+    } ],
+    [ 201, {
+      "config": {
+        "anonymous": "",
+        "hide_credentials": false,
+        "key_in_body": false,
+        "key_names": [
+          "apikey"
+        ],
+        "run_on_preflight": true
+      },
+      "enabled": true,
+      "name": "key-auth",
+      "service_id": "#{service.id}"
+    } ]
+  ],
+
+  [ "key-auth is working (no API key)",
+    [ "proxy", "GET", "/request", "", { "Host": "example.com" } ],
+    [ 401,
+      { "message": "No API key found in request" },
+      { "WWW-Authenticate": "Key realm=\"kong\"" }
+    ]
+  ],
+
+  [ "key-auth works on /expensive too",
+    [ "proxy", "GET", "/expensive", "", { "Host": "example.com" } ],
+    [ 401,
+      { "message": "No API key found in request" },
+      { "WWW-Authenticate": "Key realm=\"kong\"" }
+    ]
+  ],
+
+  [ "key-auth is working (with API key)",
+    [ "proxy", "GET", "/request", "", {
+      "Host": "example.com",
+      "ApiKey": "secret"
+    } ],
+    [ 200, {
+      "args": {},
+      "data": "",
+      "files": {},
+      "form": {},
+      "headers": {
+        "Apikey": "secret",
+        "Connection": "close",
+        "Host": "httpbin.org",
+        "X-Consumer-Id": "#{consumer.id}",
+        "X-Consumer-Username": "bob",
+        "X-Forwarded-Host": "example.com"
+      },
+      "json": null,
+      "method": "GET",
+      "url": "http://example.com/anything"
+    } ]
+  ],
+
+  [ "key-auth on /expensive with API key",
+    [ "proxy", "GET", "/expensive", "", {
+      "Host": "example.com",
+      "ApiKey": "secret"
+    } ],
+
+    [ 200, {
+      "args": {},
+      "data": "",
+      "files": {},
+      "form": {},
+      "headers": {
+        "Apikey": "secret",
+        "Connection": "close",
+        "Host": "httpbin.org",
+        "X-Consumer-Id": "#{consumer.id}",
+        "X-Consumer-Username": "bob",
+        "X-Forwarded-Host": "example.com"
+      },
+      "json": null,
+      "method": "GET",
+      "url": "http://example.com/anything"
+    } ]
+  ],
+
+  [ "add rate-limiting to route",
+    [ "admin", "POST", "/plugins", {
+      "name": "rate-limiting",
+      "route_id": "#{expensive.id}",
+      "config": {
+        "hour": 1
+      }
+    } ],
+
+    [ 201, {
+      "config": {
+          "fault_tolerant": true,
+          "hide_client_headers": false,
+          "hour": 1,
+          "limit_by": "consumer",
+          "policy": "cluster",
+          "redis_database": 0,
+          "redis_port": 6379,
+          "redis_timeout": 2000
+      },
+      "enabled": true,
+      "name": "rate-limiting",
+      "route_id": "#{expensive.id}"
+    }]
+  ],
+
+  [ "first request for rate-limited route",
+    [ "proxy", "GET", "/expensive", "", {
+      "Host": "example.com",
+      "ApiKey": "secret"
+    } ],
+
+    [ 200, {
+      "args": {},
+      "data": "",
+      "files": {},
+      "form": {},
+      "headers": {
+        "Apikey": "secret",
+        "Connection": "close",
+        "Host": "httpbin.org",
+        "X-Consumer-Id": "#{consumer.id}",
+        "X-Consumer-Username": "bob",
+        "X-Forwarded-Host": "example.com"
+      },
+      "json": null,
+      "method": "GET",
+      "url": "http://example.com/anything"
+    }, {
+      "X-RateLimit-Limit-hour": "1",
+      "X-RateLimit-Remaining-hour": "0"
+    } ]
+  ],
+
+  [ "second request to rate-limited route",
+    [ "proxy", "GET", "/expensive", "", {
+      "Host": "example.com",
+      "ApiKey": "secret"
+    } ],
+
+    [ 429, {
+      "message": "API rate limit exceeded"
+    }, {
+      "X-RateLimit-Limit-hour": "1",
+      "X-RateLimit-Remaining-hour": "0"
+    } ]
+  ],
+
+  [ "test key-auth still blocks calls to key_auth_api without API key",
+    [ "proxy", "GET", "/request", "", { "Host": "key_auth_api.com" } ],
+    [ 401,
+      { "message": "No API key found in request" },
+      { "WWW-Authenticate": "Key realm=\"kong\"" }
+    ]
+  ],
+
+  [ "test key-auth allows access to key_auth_api without API key",
+    [ "proxy", "GET", "/request", "", {
+      "Host": "key_auth_api.com",
+      "ApiKey": "key_auth_api_secret"
+    } ],
+    [ 200, {
+      "headers": {
+        "Apikey": "key_auth_api_secret",
+        "Connection": "close",
+        "Host": "httpbin.org",
+        "X-Consumer-Username": "key_auth_consumer",
+        "X-Forwarded-Host": "example.com"
+      },
+      "method": "GET",
+      "url": "https://key_auth_api.com/request"
+    } ]
+  ],
+
+  [ "oauth2 works after upgrading",
+    [ "proxy_ssl", "POST", "/oauth2/authorize", {
+        "provision_key": "provision123",
+        "authenticated_userid": "id123",
+        "client_id": "clientid123",
+        "scope": "email",
+        "response_type": "code"
+      }, {
+        "Host": "oauth2_api.com",
+        "Content-Type": "application/json",
+        "X-Forwarded-Proto": "https"
+      }
+    ],
+
+    [ 200, {
+      "%redirect_uri": "^http://google\\.com/kong\\?code=[\\w]{32,32}$"
+    } ]
+  ]
+]
