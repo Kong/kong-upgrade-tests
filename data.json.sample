@@ -1,31 +1,78 @@
 [
-  [ "base_service", "POST", "/services", {
+  [ "service",
+    [ "admin", "POST", "/services", {
       "host": "example-service.com",
       "path": "/foo"
-  }],
+    ],
+    [ 201, {
+      "%id": "[0-9a-fA-F\\-]+",
+      "%created_at": "\\d+",
+      "%updated_at": "\\d+",
+      "host": "example-service.com",
+      "path": "/foo"
+    } ]
+  ],
 
-  [ "service_with_url", "POST", "/services", {
-    "url": "http://example-service2.com/bar"
-  }],
+  [ "hosts_route",
+    [ "admin", "POST", "/routes", {
+      "hosts": [ "example-route.com" ],
+      "service": { "id": "#{service.id}" }
+    } ],
+    [ 201, {
+      "hosts": [ "example-route.com" ],
+      "service": { "id": "#{service.id}" }
+    } ],
+  ]
 
-  [ "hosts_route", "POST", "/routes", {
-    "hosts": [ "example-route.com" ],
-    "*service": { "*id": "base_service.id" }
-  }],
+  [ "methods_route_created_through_ssl",
+    [ "admin_ssl", "POST", "/routes", {
+      "methods": [ "GET" ],
+      "service": { "id": "#{service.id}" }
+    } ],
+    [ 201, {
+      "hosts": [ "example-route.com" ],
+      "service": { "id": "#{service.id}" }
+    } ],
+  ]
 
-  [ "methods_route", "POST", "/routes", {
-    "methods": [ "GET" ],
-    "*service": { "*id": "service_with_url.id" }
-  }],
+  [ "simple_api",
+    [ "admin", "POST", "/apis", {
+      "name": "simple_api",
+      "hosts": "simple-api.com",
+      "upstream_url": "http://httpbin.com"
+    } ],
+    [ 201, {
+      "name": "simple_api",
+      "hosts": [ "simple-api.com" ],
+      "upstream_url": "http://httpbin.com"
+    } ]
+  ],
 
-  [ "simple_api", "POST", "/apis", {
-    "name": "simple_api_2",
-    "hosts": [ "example-api.com" ],
-    "upstream_url": "http://example-api.com/api"
-  }],
+  [ "key_auth_plugin",
+    [ "admin", "POST", "/apis", {
+      "name": "key-auth",
+      "api_id": "#{simple_api.id}"
+    } ],
+    [ 201, {
+      "name": "key-auth",
+      "api_id": "#{simple_api.id}"
+    } ]
+  } ],
 
-  [ "_", "POST", "/plugins", {
-    "name": "key-auth",
-    "*api_id": "simple_api.id"
-  }]
+  [ "consumer",
+    [ "admin", "POST", "/consumers", {
+      "username": "peter",
+    } ],
+    [ 201, {
+      "username": "peter",
+    } ]
+  ],
+
+  [ "key_auth_credentials",
+    [ "admin", "POST", "/consumers/#{consumer.id}/key-auth" ],
+    [ 201, {
+      "%key": "[0-9a-fA-F]+",
+    } ]
+  ],
+
 ]

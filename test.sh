@@ -209,10 +209,9 @@ main() {
             || show_error "Kong base start failed with: $?"
 
         echo "Populating Kong $base_version"
-        resty $root/util/populate.lua http://$ADMIN_LISTEN $test_suite_dir \
-            || show_error "populate.lua script faild with: $?"
+        run_json_commands "populate" "$test_suite_dir/data.json"
 
-        run_lua_script "proxy base version" "proxy_base_test.lua"
+        run_json_commands "proxy base test" "$test_suite_dir/proxy_base_test.json"
 
         bin/kong stop --vv \
             || show_error "failed to stop Kong with: $?"
@@ -243,11 +242,11 @@ main() {
         echo "OK"
     popd
 
-    # TEST: run admin_test.lua if exists
-    run_lua_script "admin" "admin_test.lua"
+    # TEST: run admin_test.json if exists
+    run_json_commands "admin" "$test_suite_dir/admin_test.json"
 
-    # TEST: run proxy_test.lua if exists
-    run_lua_script "proxy target version" "proxy_test.lua"
+    # TEST: run proxy_test.json if exists
+    run_json_commands "proxy target version" "$test_suite_dir/proxy_test.json"
 
     echo
     echo "Success"
@@ -326,19 +325,20 @@ install_kong() {
     popd
 }
 
-run_lua_script() {
+run_json_commands() {
     local name="$1"
-    local filename="$2"
+    local filepath="$2"
 
     echo $test_sep "TEST $name script"
-    if [[ -f "$test_suite_dir/$filename" ]]; then
+    if [[ -f $filepath ]]; then
       resty -e "package.path = package.path .. ';' .. '$root/?.lua'" \
-            "$test_suite_dir/$filename" \
+            $root/util/json_commands_runner.lua \
             http://$ADMIN_LISTEN \
             http://$PROXY_LISTEN \
             http://$ADMIN_LISTEN_SSL \
-            http://$PROXY_LISTEN_SSL >&5 \
-            || failed_test "$name test script failed with: $?"
+            http://$PROXY_LISTEN_SSL \
+            $filepath >&5 \
+            || failed_test "$name json commands failed with: $?"
         echo "OK"
     else
         echo "SKIP"

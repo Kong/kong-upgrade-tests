@@ -1,0 +1,144 @@
+[
+  [ "key_auth_api",
+    [ "admin", "POST", "/apis", {
+      "name": "key_auth_api",
+      "hosts": "key_auth_api.com",
+      "upstream_url": "https://mockbin.org"
+    } ],
+    [ 201, {
+      "name": "key_auth_api",
+      "hosts": [ "key_auth_api.com" ],
+      "upstream_url": "https://mockbin.org"
+    } ]
+  ],
+
+  [ "key-auth plugin",
+    [ "admin", "POST", "/plugins", {
+      "name": "key-auth",
+      "api_id": "#{key_auth_api.id}"
+    } ],
+    [ 201, {
+      "name": "key-auth",
+      "api_id": "#{key_auth_api.id}"
+    } ]
+  ],
+
+  [ "key_auth_consumer",
+    [ "admin", "POST", "/consumers", { "username": "key_auth_consumer" } ],
+    [ 201, { "username": "key_auth_consumer" } ]
+  ],
+
+  [ "key_auth credentials",
+    [ "admin", "POST", "/consumers/#{key_auth_consumer.id}/key-auth", {
+      "key": "key_auth_api_secret"
+    } ],
+    [ 201, {
+      "key": "key_auth_api_secret",
+      "consumer_id": "#{key_auth_consumer.id}"
+    } ]
+  ],
+
+  [ "test key-auth blocks requests without API key",
+    [ "proxy", "GET", "/request", "", { "Host": "key_auth_api.com" } ],
+    [ 401,
+      { "message": "No API key found in request" },
+      { "WWW-Authenticate": "Key realm=\"kong\"" }
+    ]
+  ],
+
+  [ "test key-auth does not block with API key",
+    [ "proxy", "GET", "/request", "", {
+      "Host": "key_auth_api.com",
+      "ApiKey": "key_auth_api_secret"
+    } ],
+    [ 200, {
+      "headers": {
+        "Apikey": "key_auth_api_secret",
+        "Connection": "close",
+        "Host": "httpbin.org",
+        "X-Consumer-Username": "key_auth_consumer",
+        "X-Forwarded-Host": "example.com"
+      },
+      "method": "GET",
+      "url": "https://key_auth_api.com/request"
+    } ]
+  ],
+
+  [ "oauth2_api",
+    [ "admin", "POST", "/apis", {
+      "name": "oauth2_api",
+      "hosts": "oauth2_api.com",
+      "upstream_url": "https://mockbin.org"
+    } ],
+    [ 201, {
+      "name": "oauth2_api",
+      "hosts": [ "oauth2_api.com" ],
+      "upstream_url": "https://mockbin.org"
+    } ]
+  ],
+
+  [ "oauth2_consumer",
+    [ "admin", "POST", "/consumers", { "username": "oauth2_consumer" } ],
+    [ 201, { "username": "oauth2_consumer" } ]
+  ],
+
+  [ "oauth2_plugin",
+    [ "admin", "POST", "/plugins", {
+      "name": "oauth2",
+      "api_id": "#{oauth2_api.id}",
+      "config": {
+        "scopes": [ "email", "profile", "user.email" ],
+        "enable_authorization_code": true,
+        "mandatory_scope": true,
+        "provision_key": "provision123"
+      }
+    } ],
+    [ 201, {
+      "name": "oauth2",
+      "api_id": "#{oauth2_api.id}",
+      "config": {
+        "scopes": [ "email", "profile", "user.email" ],
+        "enable_authorization_code": true,
+        "mandatory_scope": true,
+        "provision_key": "provision123"
+      }
+    } ]
+  ],
+
+  [ "oauth2_credentials",
+    [ "admin", "POST", "/consumers/#{oauth2_consumer.id}/oauth2", {
+      "name": "testapp",
+      "client_id": "clientid123",
+      "client_secret": "secret123",
+      "redirect_uri": "http://google.com/kong",
+      "consumer_id": "#{oauth2_consumer.id}"
+    } ],
+    [ 201, {
+      "name": "testapp",
+      "client_id": "clientid123",
+      "client_secret": "secret123",
+      "redirect_uri": [ "http://google.com/kong" ],
+      "consumer_id": "#{oauth2_consumer.id}"
+    } ]
+  ],
+
+
+  [ "oauth2_test",
+    [ "proxy_ssl", "POST", "/oauth2/authorize", {
+        "provision_key": "provision123",
+        "authenticated_userid": "id123",
+        "client_id": "clientid123",
+        "scope": "email",
+        "response_type": "code"
+      }, {
+        "Host": "oauth2_api.com",
+        "Content-Type": "application/json",
+        "X-Forwarded-Proto": "https"
+      }
+    ],
+
+    [ 200, {
+      "%redirect_uri": "^http://google\\.com/kong\\?code=[\\w]{32,32}$"
+    } ]
+  ]
+]
