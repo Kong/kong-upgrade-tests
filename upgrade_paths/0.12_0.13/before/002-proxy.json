@@ -141,4 +141,5 @@
       "%redirect_uri": "^http://google\\.com/kong\\?code=[\\w]{32,32}$"
     } ]
   ]
+
 ]

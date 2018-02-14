@@ -101,8 +101,8 @@ main() {
 
     test_suite_dir=$(realpath $test_suite_dir)
 
-    if [[ ! -f "$test_suite_dir/data.json" ]]; then
-        wrong_usage "TEST_SUITE does not contain valid data.json"
+    if [[ ! -d "$test_suite_dir/before" ]]; then
+        wrong_usage "TEST_SUITE does not contain migration data"
     fi
 
     if [ -z "$base_version" ]; then
@@ -207,12 +207,16 @@ main() {
         echo "Starting Kong $base_version"
         bin/kong start --vv \
             || show_error "Kong base start failed with: $?"
+    popd
 
-        echo "Populating Kong $base_version"
-        run_json_commands "populate" "$test_suite_dir/data.json"
+    echo "Running requests against Kong $base_version"
 
-        run_json_commands "proxy base test" "$test_suite_dir/proxy_base_test.json"
+    for file in $test_suite_dir/before/*.json
+    do
+        run_json_commands "before/$(basename "$file")" "$file"
+    done
 
+    pushd $base_repo_dir
         bin/kong stop --vv \
             || show_error "failed to stop Kong with: $?"
 
@@ -242,11 +246,12 @@ main() {
         echo "OK"
     popd
 
-    # TEST: run admin_test.json if exists
-    run_json_commands "admin" "$test_suite_dir/admin_test.json"
+    echo "Running requests against Kong $target_version"
 
-    # TEST: run proxy_test.json if exists
-    run_json_commands "proxy target version" "$test_suite_dir/proxy_test.json"
+    for file in $test_suite_dir/after/*.json
+    do
+        run_json_commands "after/$(basename "$file")" "$file"
+    done
 
     echo
     echo "Success"
