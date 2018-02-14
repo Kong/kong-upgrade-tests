@@ -1,0 +1,79 @@
+[
+  [ "oauth2_api",
+    [ "admin", "POST", "/apis", {
+      "name": "oauth2_api",
+      "hosts": "oauth2_api.com",
+      "upstream_url": "https://mockbin.org"
+    } ],
+    [ 201, {
+      "name": "oauth2_api",
+      "hosts": [ "oauth2_api.com" ],
+      "upstream_url": "https://mockbin.org"
+    } ]
+  ],
+
+  [ "oauth2_consumer",
+    [ "admin", "POST", "/consumers", { "username": "oauth2_consumer" } ],
+    [ 201, { "username": "oauth2_consumer" } ]
+  ],
+
+  [ "oauth2_plugin",
+    [ "admin", "POST", "/plugins", {
+      "name": "oauth2",
+      "api_id": "#{oauth2_api.id}",
+      "config": {
+        "scopes": [ "email", "profile", "user.email" ],
+        "enable_authorization_code": true,
+        "mandatory_scope": true,
+        "provision_key": "provision123"
+      }
+    } ],
+    [ 201, {
+      "name": "oauth2",
+      "api_id": "#{oauth2_api.id}",
+      "config": {
+        "scopes": [ "email", "profile", "user.email" ],
+        "enable_authorization_code": true,
+        "mandatory_scope": true,
+        "provision_key": "provision123"
+      }
+    } ]
+  ],
+
+  [ "oauth2_credentials",
+    [ "admin", "POST", "/consumers/#{oauth2_consumer.id}/oauth2", {
+      "name": "testapp",
+      "client_id": "clientid123",
+      "client_secret": "secret123",
+      "redirect_uri": "http://google.com/kong",
+      "consumer_id": "#{oauth2_consumer.id}"
+    } ],
+    [ 201, {
+      "name": "testapp",
+      "client_id": "clientid123",
+      "client_secret": "secret123",
+      "redirect_uri": [ "http://google.com/kong" ],
+      "consumer_id": "#{oauth2_consumer.id}"
+    } ]
+  ],
+
+
+  [ "oauth2_test",
+    [ "proxy_ssl", "POST", "/oauth2/authorize", {
+        "provision_key": "provision123",
+        "authenticated_userid": "id123",
+        "client_id": "clientid123",
+        "scope": "email",
+        "response_type": "code"
+      }, {
+        "Host": "oauth2_api.com",
+        "Content-Type": "application/json",
+        "X-Forwarded-Proto": "https"
+      }
+    ],
+
+    [ 200, {
+      "%redirect_uri": "^http://google\\.com/kong\\?code=[\\w]{32,32}$"
+    } ]
+  ]
+]
