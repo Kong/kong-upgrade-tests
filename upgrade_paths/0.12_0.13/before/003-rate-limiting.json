@@ -1,0 +1,107 @@
+[
+  [ "rl_api",
+    [ "admin", "POST", "/apis", {
+      "name": "rl_api",
+      "hosts": "rl_api.com",
+      "upstream_url": "https://httpbin.org/anything"
+    } ],
+    [ 201, {
+      "name": "rl_api",
+      "hosts": [ "rl_api.com" ],
+      "upstream_url": "https://httpbin.org/anything"
+    } ]
+  ],
+
+  [ "rl_plugin",
+    [ "admin", "POST", "/plugins", {
+      "name": "rate-limiting",
+      "api_id": "#{rl_api.id}",
+      "config": {
+        "hour": 1
+      }
+    } ],
+    [ 201, {
+      "name": "rate-limiting",
+      "api_id": "#{rl_api.id}",
+      "config": {
+        "fault_tolerant": true,
+        "hide_client_headers": true,
+        "hour": 1,
+        "limit_by": "consumer",
+        "policy": "cluster",
+        "redis_database": 0,
+        "redis_port": 6379,
+        "redis_timeout": 2000
+      },
+      "enabled": true
+    } ]
+  ],
+
+  [ "rl_consumer",
+    [ "admin", "POST", "/consumers", { "username": "rl_consumer"} ],
+    [ 201, { "username": "rl_consumer" } ]
+  ],
+
+  [ "add credentials to consumer",
+    [ "admin", "POST", "/consumers/#{rl_consumer.id}/key-auth", { "key": "rl_secret" } ],
+    [ 201, {
+      "key": "rl_secret",
+      "consumer_id": "#{rl_consumer.id}"
+    } ]
+  ],
+
+  [ "configure key-auth for api to identify consumer",
+    [ "admin", "POST", "/plugins", {
+      "name": "key-auth",
+      "api_id": "#{rl_api.id}"
+    } ],
+    [ 201, {
+      "config": {
+        "anonymous": "",
+        "hide_credentials": false,
+        "key_in_body": false,
+        "key_names": [
+          "apikey"
+        ],
+        "run_on_preflight": true
+      },
+      "enabled": true,
+      "name": "key-auth",
+      "api_id": "#{rl_api.id}"
+    } ]
+  ],
+
+  [ "wait for the turn of the hour",
+    [ "shell", "pwd; resty scripts/wait_for_hour.lua" ],
+    [ 0 ]
+  ],
+
+  [ "first request for rate-limited route",
+    [ "proxy", "GET", "/", "", {
+      "Host": "rl_api.com",
+      "ApiKey": "rl_secret"
+    } ],
+
+    [ 200, {
+      "args": {},
+      "data": "",
+      "files": {},
+      "form": {},
+      "headers": {
+        "Apikey": "rl_secret",
+        "Connection": "close",
+        "Host": "httpbin.org",
+        "X-Consumer-Id": "#{rl_consumer.id}",
+        "X-Consumer-Username": "rl_consumer",
+        "X-Forwarded-Host": "rl_api.com"
+      },
+      "json": null,
+      "method": "GET",
+      "url": "https://rl_api.com/anything"
+    }, {
+      "X-RateLimit-Limit-hour": "1",
+      "X-RateLimit-Remaining-hour": "0"
+    } ]
+  ]
+
+]
