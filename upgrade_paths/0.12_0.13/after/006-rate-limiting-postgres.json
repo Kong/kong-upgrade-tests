@@ -1,0 +1,15 @@
+[
+  [ "second request to rate-limited route on API fails on Postgres",
+    [ "proxy", "GET", "/", "", {
+      "Host": "rl_api.com",
+      "ApiKey": "rl_secret"
+    } ],
+
+    [ 429, {
+      "message": "API rate limit exceeded"
+    }, {
+      "X-RateLimit-Limit-hour": "1",
+      "X-RateLimit-Remaining-hour": "0"
+    } ]
+  ]
+]
