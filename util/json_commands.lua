@@ -27,7 +27,12 @@ local function assert_table_match(expected, given, context)
     else
       local pk = tostring(k):match("^%%(.*)$")
       if pk then
-        assert(ngx.re.match(given[pk], v), context .. ": mismatch at key '" .. k .. "'")
+        local errmsg = context .. ": regex mismatch at key '" .. k .. "':\n" ..
+                       "Passed in: \n" ..
+                       "(string) " .. v .. "\n" ..
+                       "Expected to match: \n" ..
+                       "(regex) " .. given[pk]
+        assert(ngx.re.match(given[pk], v), errmsg)
       else
         assert.same(v, given[k], context .. ": mismatch at key '" .. k .. "'")
       end
@@ -45,10 +50,10 @@ local function read_json_file(filepath)
   local str = f:read("*all")
   f:close()
 
-  local data, err2 = cjson.decode(str)
-  if not data then
-    exit("could not parse JSON from file %s. Error: %s",
-         filepath, err2)
+  local pok, data, err2 = pcall(cjson.decode, str)
+  if not (pok and data) then
+    exit("could not parse JSON from file %s - Error: %s",
+      filepath, data or err2)
   end
 
   return data

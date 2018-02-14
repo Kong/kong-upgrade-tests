@@ -90,7 +90,11 @@ local function build_request_function(http_method)
 
     assert(httpc:close())
 
-    res_body = assert(cjson.decode(res_body))
+    local pok, err
+    pok, res_body, err = pcall(cjson.decode, res_body)
+    if not (pok and res_body) then
+      res_body = res_body or err
+    end
 
     return {
       status = status,
