@@ -128,12 +128,20 @@ local function parse_command_path(path, context, responses)
 end
 
 
-local function parse_command_request(request, http_clients, context, responses)
-  local ok, len = is_sequence(request)
-  if not ok or len < 3 then
+local function parse_command_shell_request(request, context)
+  if #request ~= 2 then
+    exit("%s: a shell request must be an array of 2 elements", context)
+  end
+  return { type = "shell",
+           execute = request[2],
+         }
+end
+
+
+local function parse_command_http_request(request, http_clients, context, responses)
+  if #request < 3 then
     exit("%s: the request must be an array of at least 3 elements", context)
   end
-
   local httpc_name = request[1]
   local httpc = http_clients[httpc_name]
   if not httpc then
@@ -151,12 +159,27 @@ local function parse_command_request(request, http_clients, context, responses)
   local body    = parse_table_with_inline_expressions(request[4], context .. " body", responses)
   local headers = parse_table_with_inline_expressions(request[5], context .. " headers", responses)
 
-  return { httpc = httpc,
+  return { type = "http",
+           httpc = httpc,
            method = method,
            path = path,
            body = body,
            headers = headers,
          }
+end
+
+
+local function parse_command_request(request, http_clients, context, responses)
+  local ok, len = is_sequence(request)
+  if not ok then
+    exit("%s: the request must be an array", context)
+  end
+
+  if request[1] == "shell" then
+    return parse_command_shell_request(request, context, len)
+  end
+
+  return parse_command_http_request(request, http_clients, context, responses)
 end
 
 
@@ -230,6 +253,34 @@ local function validate_response(res, expected, context)
 end
 
 
+local function run_shell_command(request)
+  local stdout = os.tmpname()
+  local stderr = os.tmpname()
+
+  local cmd = "( " .. request.execute .. " ) 1> " .. stdout .. " 2> " .. stderr
+  local _, _, rc = os.execute(cmd)
+
+  local fdout = io.open(stdout, "r")
+  local out = fdout:read("*a")
+  fdout:close()
+
+  local fderr = io.open(stderr, "r")
+  local err = fderr:read("*a")
+  fderr:close()
+
+  os.remove(stdout)
+  os.remove(stderr)
+
+  return {
+    status = rc,
+    body = {
+      stdout = out,
+      stderr = err,
+    }
+  }
+end
+
+
 local function execute_commands(commands, http_clients)
   local ok, len = is_sequence(commands)
   if not ok or len == 0 then
@@ -240,7 +291,17 @@ local function execute_commands(commands, http_clients)
   for i = 1, len do
     local command = commands[i]
     local name, request, expected_response, context = parse_command(command, http_clients, i, responses)
-    local response = send_http_request(request)
+
+    local response
+
+    if request.type == "http" then
+      response = send_http_request(request)
+
+    elseif request.type == "shell" then
+      response = run_shell_command(request)
+
+    end
+
     validate_response(response, expected_response, context .. " response")
     responses[name] = response.body
   end

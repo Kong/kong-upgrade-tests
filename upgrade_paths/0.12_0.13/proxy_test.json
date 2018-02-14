@@ -253,6 +253,11 @@
     }]
   ],
 
+  [ "wait for the turn of the hour",
+    [ "shell", "resty scripts/wait_for_hour.lua" ],
+    [ 0 ]
+  ],
+
   [ "first request for rate-limited route",
     [ "proxy", "GET", "/expensive", "", {
       "Host": "example.com",
