@@ -1,10 +1,10 @@
 [
-  [ "simple_api",
-    [ "admin", "GET", "/apis/simple_api" ],
+  [ "test host_api still exists",
+    [ "admin", "GET", "/apis/host_api" ],
     [ 200, {
       "strip_uri": true,
-      "hosts": ["simple-api.com"],
-      "name": "simple_api",
+      "hosts": ["host-api.com"],
+      "name": "host_api",
       "http_if_terminated": false,
       "https_only": false,
       "retries": 5,
@@ -12,30 +12,46 @@
       "upstream_connect_timeout": 60000,
       "upstream_read_timeout": 60000,
       "upstream_send_timeout": 60000,
-      "upstream_url": "http://simple-api.com/api"
+      "upstream_url": "http://mockbin.org"
     } ]
   ],
 
-  [ "complex_api",
-    [ "admin", "GET", "/apis/complex_api" ],
+  [ "test path_api still exists",
+    [ "admin", "GET", "/apis/path_api" ],
     [ 200, {
       "strip_uri": true,
-      "hosts": ["complex-api.com"],
-      "name": "complex_api",
-      "methods": ["GET"],
+      "name": "path_api",
       "http_if_terminated": false,
       "https_only": false,
       "retries": 5,
-      "uris": ["/secret","/public"],
+      "uris": ["/private","/public"],
       "preserve_host": false,
       "upstream_connect_timeout": 60000,
       "upstream_read_timeout": 60000,
       "upstream_send_timeout": 60000,
-      "upstream_url": "http://complex-api.com/api"
+      "upstream_url": "http://mockbin.org/request/path_api"
     } ]
   ],
 
-  [ "oauth2_api",
+  [ "test host api",
+    [ "proxy", "GET", "/request", "", { "Host": "host-api.com" } ],
+    [ 200, {
+      "headers": { "X-Forwarded-Host": "host-api.com" },
+      "url": "http://host-api.com/request"
+    } ]
+  ],
+
+  [ "test path api private path",
+    [ "proxy", "GET", "/private" ],
+    [ 200, { "url": "http://127.0.0.1/request/path_api" } ]
+  ],
+
+  [ "test path api public path",
+    [ "proxy", "GET", "/public" ],
+    [ 200, { "url": "http://127.0.0.1/request/path_api" } ]
+  ],
+
+  [ "test oauth2_api still exists",
     [ "admin", "GET", "/apis/oauth2_api" ],
     [ 200, {
       "strip_uri": true,
