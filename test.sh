@@ -334,6 +334,12 @@ run_json_commands() {
     local name="$1"
     local filepath="$2"
 
+    # if filename contains database name, only run it for that database
+    if [[ ("$filepath" =~ cassandra && "$DATABASE" != cassandra) ||
+          ("$filepath" =~ postgres  && "$DATABASE" != postgres) ]]; then
+        return
+    fi
+
     echo $test_sep "TEST $name script"
     if [[ -f $filepath ]]; then
       resty -e "package.path = package.path .. ';' .. '$root/?.lua'" \
