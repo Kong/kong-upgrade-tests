@@ -128,6 +128,44 @@
     } ]
   ],
 
+  [ "test path api private path",
+    [ "proxy", "GET", "/private" ],
+    [ 200, {
+      "method": "GET",
+      "url": "http://127.0.0.1/request/path_api"
+    } ]
+  ],
+
+  [ "test path api public path",
+    [ "proxy", "GET", "/public" ],
+    [ 200, {
+      "method": "GET",
+      "url": "http://127.0.0.1/request/path_api"
+    } ]
+  ],
+
+  [ "override",
+    [ "admin", "POST", "/routes", {
+      "paths": [ "/private" ],
+      "service": { "id": "#{service.id}" }
+    } ],
+    [ 201, {
+      "paths": [ "/private" ],
+      "service": { "id": "#{service.id}" }
+    } ]
+  ],
+
+  [ "test path api private path was overriden by route",
+    [ "proxy", "GET", "/private" ],
+    [ 200, { "url": "http://127.0.0.1/anything" } ]
+  ],
+
+  [ "test path api public path still works",
+    [ "proxy", "GET", "/public" ],
+    [ 200, { "url": "http://127.0.0.1/request/path_api" } ]
+  ],
+
+
   [ "consumer",
     [ "admin", "POST", "/consumers", { "username": "bob"} ],
     [ 201, { "username": "bob" } ]

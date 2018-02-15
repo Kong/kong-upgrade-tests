@@ -1,31 +1,49 @@
 [
-  [ "simple_api",
+  [ "host_api",
     [ "admin", "POST", "/apis", {
-      "name": "simple_api",
-      "hosts": "simple-api.com",
-      "upstream_url": "http://simple-api.com/api"
+      "name": "host_api",
+      "hosts": "host-api.com",
+      "upstream_url": "http://mockbin.org"
     } ],
     [ 201, {
-      "name": "simple_api",
-      "hosts": [ "simple-api.com" ],
-      "upstream_url": "http://simple-api.com/api"
+      "name": "host_api",
+      "hosts": [ "host-api.com" ],
+      "upstream_url": "http://mockbin.org"
     } ]
   ],
 
-  [ "complex_api",
+  [ "path_api",
     [ "admin", "POST", "/apis", {
-      "name": "complex_api",
-      "hosts": "complex-api.com",
-      "methods": "GET",
-      "uris": "/secret, /public",
-      "upstream_url": "http://complex-api.com/api"
+      "name": "path_api",
+      "uris": "/private, /public",
+      "upstream_url": "http://mockbin.org/request/path_api"
     } ],
     [ 201, {
-      "name": "complex_api",
-      "hosts": [ "complex-api.com" ],
-      "methods": [ "GET" ],
-      "uris": ["/secret", "/public"],
-      "upstream_url": "http://complex-api.com/api"
+      "name": "path_api",
+      "uris": ["/private", "/public"],
+      "upstream_url": "http://mockbin.org/request/path_api"
+    } ]
+  ],
+
+  [ "test host api",
+    [ "proxy", "GET", "/request", "", { "Host": "host-api.com" } ],
+    [ 200, {
+      "headers": { "X-Forwarded-Host": "host-api.com" },
+      "url": "http://host-api.com/request"
+    } ]
+  ],
+
+  [ "test path api private path",
+    [ "proxy", "GET", "/private" ],
+    [ 200, {
+      "url": "http://127.0.0.1/request/path_api"
+    } ]
+  ],
+
+  [ "test path api public path",
+    [ "proxy", "GET", "/public" ],
+    [ 200, {
+      "url": "http://127.0.0.1/request/path_api"
     } ]
   ]
 ]
