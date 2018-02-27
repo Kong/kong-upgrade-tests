@@ -1,0 +1,56 @@
+#!/usr/bin/env resty
+
+local colors = {
+  yellow = "1;33",
+  green = "0;32",
+  bold = "1",
+}
+
+local function color(clr, str)
+  return "\27[" .. colors[clr] .. "m" .. str .. "\27[0m"
+end
+
+local function read_migrations(filename)
+  local fd = io.open(filename, "r")
+  if not fd then
+    return nil, "could not open " .. filename
+  end
+
+  fd:read("*l") -- skip title line
+  local migrations = {}
+  for line in fd:lines() do
+    local class, list = line:match("^([^:]*): (.*)$")
+    local migs = {}
+    for mig in list:gmatch("[^, ]+") do
+      table.insert(migs, mig)
+      migs[mig] = true
+    end
+    migrations[class] = migs
+  end
+  fd:close()
+  return migrations
+end
+
+local base_filename = arg[1]
+local target_filename = arg[2]
+
+local base_migrations = read_migrations(base_filename)
+local target_migrations = read_migrations(target_filename)
+
+local new_migrations = {}
+for class, migs in pairs(target_migrations) do
+  for _, mig in ipairs(migs) do
+    if not base_migrations[class][mig] then
+      table.insert(new_migrations, { class = class, name = mig })
+    end
+  end
+end
+
+print()
+print(color("yellow", "new migrations:"))
+print(color("yellow", "---------------"))
+print()
+for _, mig in ipairs(new_migrations) do
+  print(color("green", mig.class) .. ": " .. color("bold", mig.name))
+end
+print()
