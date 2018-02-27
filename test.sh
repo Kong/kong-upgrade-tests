@@ -20,7 +20,6 @@ root=`pwd`
 cache_dir=$root/cache
 tmp_dir=$root/tmp
 log_file=$root/run.log
-test_sep="==>"
 
 # arguments
 base_version=
@@ -167,7 +166,7 @@ main() {
     # setup database
 
     if [[ "$DATABASE" == "postgres" ]]; then
-        echo "Dropping PostgreSQL database '$POSTGRES_DATABASE'"
+        msg "Dropping PostgreSQL database '$POSTGRES_DATABASE'"
         dropdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE \
              || show_warning "dropdb failed with: $?"
         createdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE \
@@ -178,7 +177,7 @@ main() {
         export KONG_PG_PORT=$POSTGRES_PORT
         export KONG_PG_DATABASE=$POSTGRES_DATABASE
     elif [[ "$DATABASE" == "cassandra" ]]; then
-        echo "Dropping Cassandra keyspace '$CASSANDRA_KEYSPACE'"
+        msg "Dropping Cassandra keyspace '$CASSANDRA_KEYSPACE'"
         cqlsh --cqlversion=3.4.2 \
             -e "DROP KEYSPACE $CASSANDRA_KEYSPACE" \
             $CASSANDRA_CONTACT_POINT \
@@ -198,16 +197,18 @@ main() {
 
     pushd $base_repo_dir
         set_env_vars
-        echo "Running $base_version migrations"
+        msg "Running $base_version migrations"
         bin/kong migrations up --vv \
             || show_error "Kong base version migration failed with: $?"
 
-        echo "Starting Kong $base_version"
+        msg "Starting Kong $base_version"
         bin/kong start --vv \
             || show_error "Kong base start failed with: $?"
     popd
 
-    echo "Running requests against Kong $base_version"
+    msg "--------------------------------------------------"
+    msg "Running requests against Kong $base_version"
+    msg "--------------------------------------------------"
 
     for file in $test_suite_dir/before/*.json
     do
@@ -218,7 +219,7 @@ main() {
         bin/kong stop --vv \
             || show_error "failed to stop Kong with: $?"
 
-        echo "$base_version instance ready, stopping Kong"
+        msg "$base_version instance ready, stopping Kong"
     popd
 
     # Install Kong target version
@@ -231,21 +232,25 @@ main() {
     pushd $target_repo_dir
         set_env_vars
         # TEST: run migrations between base and target version
-        echo
-        echo $test_sep "TEST migrations up: run $target_version migrations"
+        bin/kong migrations list > $tmp_dir/base.migrations
+        msg_test "TEST migrations up: run $target_version migrations"
         bin/kong migrations up --v >&5 2>&6 \
             || failed_test "'kong migrations up' failed with: $?"
-        echo "OK"
+        msg_green "OK"
+        bin/kong migrations list > $tmp_dir/target.migrations
+
+        $root/scripts/diff_migrations $tmp_dir/base.migrations $tmp_dir/target.migrations >&5
 
         # TEST: start target version
-        echo
-        echo $test_sep "TEST kong start: $target_version starts (migrated)"
+        msg_test "TEST kong start: $target_version starts (migrated)"
         bin/kong start --v >&5 2>&6 \
             || failed_test "'kong start' failed with: $?"
-        echo "OK"
+        msg_green "OK"
     popd
 
-    echo "Running requests against Kong $target_version"
+    msg "--------------------------------------------------"
+    msg "Running requests against Kong $target_version"
+    msg "--------------------------------------------------"
 
     for file in $test_suite_dir/after/*.json
     do
@@ -253,7 +258,8 @@ main() {
     done
 
     echo
-    echo "Success"
+    msg_green "*** Success ***"
+    echo
 
     cleanup
 }
@@ -272,14 +278,14 @@ clone_or_pull_repo() {
 
     if [[ ! -d "$cache_dir/$repo" ]]; then
         pushd $cache_dir
-            echo "Cloning git@github.com:kong/$repo.git"
+            msg "Cloning git@github.com:kong/$repo.git"
             ssh-agent bash -c "ssh-add $ssh_key && \
                 git clone git@github.com:kong/$repo.git $repo" \
                     || show_error "git clone failed with: $?"
         popd
     else
         pushd $cache_dir/$repo
-            echo "Pulling git@github.com:kong/$repo.git"
+            msg "Pulling git@github.com:kong/$repo.git"
             git pull
         popd
     fi
@@ -319,23 +325,23 @@ install_kong() {
     dir=$2
 
     echo
-    echo "Installing Kong version $version"
+    msg "Installing Kong version $version"
 
     pushd $dir
         major_version=`builtin echo $version | sed 's/\.[0-9]*$//g'`
         if [[ -f "$root/patches/kong-$version-no_openresty_version_check.patch" ]]; then
-            echo "Applying kong-$version-no_openresty_version_check patch to Kong $version"
+            msg "Applying kong-$version-no_openresty_version_check patch to Kong $version"
             patch -p1 < $root/patches/kong-$version-no_openresty_version_check.patch \
                 || show_error "failed to apply patch: $?"
         elif [[ -f "$root/patches/kong-$major_version-no_openresty_version_check.patch" ]]; then
-            echo "Applying kong-$major_version-no_openresty_version_check patch to Kong $version"
+            msg "Applying kong-$major_version-no_openresty_version_check patch to Kong $version"
             patch -p1 < $root/patches/kong-$major_version-no_openresty_version_check.patch \
                 || show_error "failed to apply patch: $?"
         else
-            echo "No kong-no_openresty_version_check patch to apply to Kong $version"
+            msg "No kong-no_openresty_version_check patch to apply to Kong $version"
         fi
 
-        echo "Installing Kong..."
+        msg "Installing Kong..."
         make -k dev \
             || show_error "installing Kong failed with: $?"
     popd
@@ -351,7 +357,7 @@ run_json_commands() {
         return
     fi
 
-    echo $test_sep "TEST $name script"
+    msg_test "TEST $name script"
     if [[ -f $filepath ]]; then
       resty -e "package.path = package.path .. ';' .. '$root/?.lua'" \
             $root/util/json_commands_runner.lua \
@@ -361,9 +367,9 @@ run_json_commands() {
             http://$PROXY_LISTEN_SSL \
             $filepath >&5 \
             || failed_test "$name json commands failed with: $?"
-        echo "OK"
+        msg_green "OK"
     else
-        echo "SKIP"
+        msg_yellow "SKIP"
     fi
 }
 
@@ -395,7 +401,7 @@ wrong_usage() {
 
 failed_test() {
     cleanup
-    echo_err "Failed: $1"
+    msg_red "Failed: $1"
     builtin echo "  displaying last lines of: $log_file" >&6
     builtin echo "  -----------------------------------" >&6
     grep ERROR -A50 $log_file >&6 || tail $log_file >&6
@@ -404,13 +410,13 @@ failed_test() {
 }
 
 show_warning() {
-    echo_err "Warning: $1"
+    msg_yellow "Warning: $1"
 }
 
 
 show_error() {
     cleanup
-    echo_err "Error: $1"
+    msg_red "Error: $1"
     builtin echo "  displaying last lines of: $log_file" >&6
     builtin echo "  -----------------------------------" >&6
     grep ERROR -A50  $log_file >&6 || tail $log_file >&6
@@ -427,6 +433,38 @@ echo() {
 echo_err() {
     builtin echo "$@"
     builtin echo "$@" >&6
+}
+
+msg() {
+    builtin echo -en "\033[1m" >&5
+    echo "$@"
+    builtin echo -en "\033[0m" >&5
+}
+
+msg_test() {
+    builtin echo -en "\033[1;34m" >&5
+    echo -n "===> "
+    builtin echo -en "\033[1;36m" >&5
+    echo "$@"
+    builtin echo -en "\033[0m" >&5
+}
+
+msg_green() {
+    builtin echo -en "\033[1;32m" >&5
+    echo "$@"
+    builtin echo -en "\033[0m" >&5
+}
+
+msg_yellow() {
+    builtin echo -en "\033[1;33m" >&6
+    echo_err "$@"
+    builtin echo -en "\033[0m" >&6
+}
+
+msg_red() {
+    builtin echo -en "\033[1;31m" >&6
+    echo_err "$@"
+    builtin echo -en "\033[0m" >&6
 }
 
 pushd() { builtin pushd $1 > /dev/null; }
