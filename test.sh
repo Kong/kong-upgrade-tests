@@ -37,10 +37,6 @@ ret1=
 ret2=
 
 export KONG_PREFIX=$root/tmp/kong
-export KONG_ADMIN_LISTEN=$ADMIN_LISTEN
-export KONG_PROXY_LISTEN=$PROXY_LISTEN
-export KONG_ADMIN_LISTEN_SSL=$ADMIN_LISTEN_SSL
-export KONG_PROXY_LISTEN_SSL=$PROXY_LISTEN_SSL
 export KONG_NGINX_WORKER_PROCESSES=1
 
 # clear log file for this run
@@ -201,6 +197,7 @@ main() {
     install_kong $base_version $base_repo_dir
 
     pushd $base_repo_dir
+        set_env_vars
         echo "Running $base_version migrations"
         bin/kong migrations up --vv \
             || show_error "Kong base version migration failed with: $?"
@@ -232,6 +229,7 @@ main() {
     #######
 
     pushd $target_repo_dir
+        set_env_vars
         # TEST: run migrations between base and target version
         echo
         echo $test_sep "TEST migrations up: run $target_version migrations"
@@ -302,6 +300,18 @@ prepare_repo() {
     popd
 
     ret1=$tmp_dir/$tmp_repo_name
+}
+
+set_env_vars() {
+    if grep -q "proxy_listen_ssl" kong.conf.default; then
+        export KONG_ADMIN_LISTEN="$ADMIN_LISTEN"
+        export KONG_PROXY_LISTEN="$PROXY_LISTEN"
+        export KONG_ADMIN_LISTEN_SSL="$ADMIN_LISTEN_SSL"
+        export KONG_PROXY_LISTEN_SSL="$PROXY_LISTEN_SSL"
+    else
+        export KONG_ADMIN_LISTEN="$ADMIN_LISTEN, $ADMIN_LISTEN_SSL ssl"
+        export KONG_PROXY_LISTEN="$PROXY_LISTEN, $PROXY_LISTEN_SSL ssl"
+    fi
 }
 
 install_kong() {
