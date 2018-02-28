@@ -1,0 +1,44 @@
+[
+  [ "/healthy endpoint works in Cassandra 2, thanks to the target index",
+    [ "admin", "POST", "/upstreams/ti_upstream/targets/localhost:3333/healthy", "", {
+      "Content-Type": "application/x-www-form-urlencoded"
+    } ],
+    [ 204 ]
+  ],
+  [ "checking health after /healthy",
+    [ "admin", "GET", "/upstreams/ti_upstream/health", "", {
+      "Host": "rl_api.com",
+      "ApiKey": "rl_secret"
+    } ],
+    [ 200, {
+      "data": [
+        {
+          "target": "localhost:3333",
+          "health": "HEALTHY"
+        }
+      ],
+      "total": 1
+    } ]
+  ],
+  [ "/unhealthy endpoints works in Cassandra 2, thanks to the target index",
+    [ "admin", "POST", "/upstreams/ti_upstream/targets/localhost:3333/unhealthy", "", {
+      "Content-Type": "application/x-www-form-urlencoded"
+    } ],
+    [ 204 ]
+  ],
+  [ "checking health after /unhealthy",
+    [ "admin", "GET", "/upstreams/ti_upstream/health", "", {
+      "Host": "rl_api.com",
+      "ApiKey": "rl_secret"
+    } ],
+    [ 200, {
+      "data": [
+        {
+          "target": "localhost:3333",
+          "health": "UNHEALTHY"
+        }
+      ],
+      "total": 1
+    } ]
+  ]
+]
