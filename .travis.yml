@@ -1,0 +1,57 @@
+dist: trusty
+sudo: false
+
+language: java
+
+jdk:
+  - oraclejdk8
+
+notifications:
+  email: false
+
+addons:
+  postgresql: "9.4"
+  apt:
+    packages:
+      - net-tools
+      - libpcre3-dev
+      - build-essential
+
+env:
+  global:
+    - LUAROCKS=2.4.3
+    - OPENSSL=1.0.2n
+    - CASSANDRA=2.2.8
+    - OPENRESTY=1.11.2.5
+    - DOWNLOAD_CACHE=$HOME/download-cache
+    - INSTALL_CACHE=$HOME/install-cache
+  matrix:
+    - TEST=upgrade_paths/0.11_0.12  SRC=0.11.0          DST=release/0.12.2  DB=postgres
+    - TEST=upgrade_paths/0.11_0.12  SRC=0.11.0          DST=release/0.12.2  DB=cassandra  CASSANDRA=2.2.8
+    - TEST=upgrade_paths/0.11_0.12  SRC=0.11.0          DST=release/0.12.2  DB=cassandra  CASSANDRA=3.9
+
+    - TEST=upgrade_paths/0.12_0.13  SRC=0.12.0          DST=release/0.13.0  DB=postgres
+    - TEST=upgrade_paths/0.12_0.13  SRC=0.12.0          DST=release/0.13.0  DB=cassandra  CASSANDRA=2.2.8
+    - TEST=upgrade_paths/0.12_0.13  SRC=0.12.0          DST=release/0.13.0  DB=cassandra  CASSANDRA=3.9
+
+    - TEST=upgrade_paths/0.12_0.13  SRC=0.12.1          DST=release/0.13.0  DB=postgres
+    - TEST=upgrade_paths/0.12_0.13  SRC=0.12.1          DST=release/0.13.0  DB=cassandra  CASSANDRA=2.2.8
+    - TEST=upgrade_paths/0.12_0.13  SRC=0.12.1          DST=release/0.13.0  DB=cassandra  CASSANDRA=3.9
+
+    - TEST=upgrade_paths/0.12_0.13  SRC=release/0.12.2  DST=release/0.13.0  DB=postgres
+    - TEST=upgrade_paths/0.12_0.13  SRC=release/0.12.2  DST=release/0.13.0  DB=cassandra  CASSANDRA=2.2.8
+    - TEST=upgrade_paths/0.12_0.13  SRC=release/0.12.2  DST=release/0.13.0  DB=cassandra  CASSANDRA=3.9
+
+before_install:
+  - source .ci/setup_env.sh
+
+script:
+  - .ci/run_tests.sh
+
+cache:
+  apt: true
+  pip: true
+  directories:
+    - $DOWNLOAD_CACHE
+    - $INSTALL_CACHE
+    - $HOME/.ccm/repository
