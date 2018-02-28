@@ -1,0 +1,42 @@
+[
+  [ "ti_upstream",
+    [ "admin", "POST", "/upstreams", {
+      "name": "ti_upstream",
+      "healthchecks": {
+        "passive": {
+          "healthy": {
+            "successes": 1
+          },
+          "unhealthy": {
+            "http_failures": 1,
+            "timeouts": 1,
+            "tcp_failures": 1
+          }
+        }
+      }
+    } ],
+    [ 201, {
+      "name": "ti_upstream",
+      "healthchecks": {
+        "passive": {
+          "healthy": {
+            "successes": 1
+          },
+          "unhealthy": {
+            "http_failures": 1,
+            "timeouts": 1,
+            "tcp_failures": 1
+          }
+        }
+      }
+    } ]
+  ],
+  [ "target for testing target index",
+    [ "admin", "POST", "/upstreams/ti_upstream/targets", {
+      "target": "localhost:3333"
+    } ],
+    [ 201, {
+      "target": "localhost:3333"
+    } ]
+  ]
+]
