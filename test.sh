@@ -28,6 +28,7 @@ base_repo=kong
 target_repo=kong
 test_suite_dir=
 ssh_key=$HOME/.ssh/id_rsa
+offline=
 
 # control variables
 base_repo_dir=
@@ -77,6 +78,9 @@ main() {
                 ;;
             -f|--force)
                 rm -rf $cache_dir
+                ;;
+            --offline)
+                offline=1
                 ;;
             --ssh-key)
                 ssh_key=$2
@@ -152,9 +156,14 @@ main() {
     #       ├── kong-0.11.2     -> short-lived checkout of 0.11.2
     #       └── kong-0.12.1     -> short-lived checkout of 0.12.1
 
-    clone_or_pull_repo $base_repo
-    if [[ "$base_repo" != "$target_repo" ]]; then
-        clone_or_pull_repo $target_repo
+    if [[ "$offline" ]]; then
+        echo "127.0.0.1 localhost mockbin.org httpbin.org" >> $tmp_dir/hosts
+        export KONG_DNS_HOSTSFILE=$tmp_dir/hosts
+    else
+        clone_or_pull_repo $base_repo
+        if [[ "$base_repo" != "$target_repo" ]]; then
+            clone_or_pull_repo $target_repo
+        fi
     fi
 
     prepare_repo $base_repo $base_version
