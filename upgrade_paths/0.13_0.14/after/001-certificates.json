@@ -1,0 +1,25 @@
+[
+  [ "Check that the certificates on creation were translated correctly",
+    [ "admin", "GET", "/certificates/foo.com" ],
+    [ 200, {
+      "%id": "[0-9a-fA-F\\-]+",
+      "snis": [
+        "bar.com", "foo.com"
+      ],
+      "cert": "cert",
+      "key": "key"
+    } ]
+  ],
+
+  [ "Check that the certificates added after creation where translated correctly",
+    [ "admin", "GET", "/certificates/baz.com" ],
+    [ 200, {
+      "%id": "[0-9a-fA-F\\-]+",
+      "snis": [
+        "baz.com"
+      ],
+      "cert": "cert",
+      "key": "key"
+    } ]
+  ]
+]

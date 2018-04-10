@@ -1,0 +1,35 @@
+[
+  [ "Create a ssl certificate with snis attached",
+    [ "admin", "POST", "/certificates", {
+      "cert": "cert",
+      "key": "key",
+      "snis": "foo.com,bar.com"
+    } ],
+    [ 201 ]
+  ],
+
+  [ "Create a ssl certificate with no snis attached",
+    [ "admin", "POST", "/certificates", {
+      "cert": "cert",
+      "key": "key"
+    } ],
+    [ 201 ]
+  ],
+
+  [ "cert_3",
+    [ "admin", "POST", "/certificates", {
+      "cert": "cert",
+      "key": "key"
+    } ],
+    [ 201 ]
+  ],
+
+  [ "Attach a server name to cert_3",
+    [ "admin", "POST", "/snis", {
+      "ssl_certificate_id": "#{cert_3.id}",
+      "name": "baz.com"
+    } ],
+    [ 201 ]
+  ]
+
+]
