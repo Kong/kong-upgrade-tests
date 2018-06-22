@@ -1,0 +1,26 @@
+[
+  [ "upstream still exists",
+    [ "admin", "GET", "/upstreams/#{upstreams:upstream.id}" ],
+    [ 200, {
+      "name": "foo.com"
+    } ]
+  ],
+  [ "upstream does have hash_on_cookie",
+    [ "admin", "PATCH", "/upstreams/#{upstreams:upstream.id}", {
+      "hash_on_cookie": "test"
+    } ],
+    [ 200, {
+      "name": "foo.com",
+      "hash_on_cookie": "test"
+    } ]
+  ],
+  [ "upstream does have hash_on_cookie_path",
+    [ "admin", "PATCH", "/upstreams/#{upstreams:upstream.id}", {
+      "hash_on_cookie_path": "/test"
+    } ],
+    [ 200, {
+      "name": "foo.com",
+      "hash_on_cookie_path": "/test"
+    } ]
+  ]
+]
