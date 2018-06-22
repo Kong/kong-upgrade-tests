@@ -178,7 +178,7 @@ main() {
         export KONG_PG_DATABASE=$POSTGRES_DATABASE
     elif [[ "$DATABASE" == "cassandra" ]]; then
         msg "Dropping Cassandra keyspace '$CASSANDRA_KEYSPACE'"
-        cqlsh --cqlversion=3.4.2 \
+        cqlsh \
             -e "DROP KEYSPACE $CASSANDRA_KEYSPACE" \
             $CASSANDRA_CONTACT_POINT \
             $CASSANDRA_PORT
