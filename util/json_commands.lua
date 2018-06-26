@@ -2,6 +2,8 @@ require "luarocks.require"
 local cjson = require "cjson"
 local test_helpers = require "util.test_helpers"
 local assert = require "luassert"
+local pretty = require "pl.pretty"
+local file = require "pl.file"
 
 
 local _M = {}
@@ -20,22 +22,21 @@ local function assert_table_match(expected, given, context)
   end
 
   for k, v in pairs(expected) do
-    if type(v) == "table" then
-      if type(given[k]) ~= "table" then
-        exit("%s: expected an object at key '%s'.", context, tostring(k))
-      end
+    if type(v) ~= type(given[k]) then
+      exit("%s: expected object at key '%s' to be of type %s", context, tostring(k), type(v))
+    end
+
+    local pk = tostring(k):match("^%%(.*)$")
+    if pk then
+      local errmsg = context .. ": regex mismatch at key '" .. k .. "':\n" ..
+                     "Passed in: \n" ..
+                     "(string) " .. v .. "\n" ..
+                     "Expected to match: \n" ..
+                     "(regex) " .. given[pk]
+      assert(ngx.re.match(given[pk], v), errmsg)
+
     else
-      local pk = tostring(k):match("^%%(.*)$")
-      if pk then
-        local errmsg = context .. ": regex mismatch at key '" .. k .. "':\n" ..
-                       "Passed in: \n" ..
-                       "(string) " .. v .. "\n" ..
-                       "Expected to match: \n" ..
-                       "(regex) " .. given[pk]
-        assert(ngx.re.match(given[pk], v), errmsg)
-      else
-        assert.same(v, given[k], context .. ": mismatch at key '" .. k .. "'")
-      end
+      assert.same(v, given[k], context .. ": mismatch at key '" .. k .. "'")
     end
   end
 end
@@ -286,13 +287,15 @@ local function run_shell_command(request)
 end
 
 
-local function execute_commands(commands, http_clients)
+local function execute_commands(commands, http_clients, file_path)
   local ok, len = is_sequence(commands)
   if not ok or len == 0 then
     exit("expected commands to be an array")
   end
 
-  local responses = {}
+  local dump = file.read("responses.dump")
+  local responses = dump and pretty.read(dump) or {}
+
   for i = 1, len do
     local command = commands[i]
     local name, request, expected_response, context = parse_command(command, http_clients, i, responses)
@@ -304,12 +307,27 @@ local function execute_commands(commands, http_clients)
 
     elseif request.type == "shell" then
       response = run_shell_command(request)
-
     end
 
     validate_response(response, expected_response, context .. " response")
     responses[name] = response.body
+
+    local namespace
+    local neg_sub_pos = string.find(string.reverse(file_path), "/", 1, true)
+    if neg_sub_pos then
+      namespace = string.sub(file_path, -neg_sub_pos + 1)
+    end
+
+    local pos_sub_pos = string.find(namespace, "-", 1, true)
+    if pos_sub_pos then
+      namespace = string.sub(namespace, pos_sub_pos + 1)
+    end
+
+    namespace = string.sub(namespace, 1, -6)
+    responses[namespace .. ":" .. name] = response.body
   end
+
+  pretty.dump(responses, "responses.dump")
 
   return responses
 end
@@ -325,7 +343,7 @@ function _M.execute(admin_url, proxy_url, admin_ssl_url, proxy_ssl_url, file_pat
     proxy_ssl = test_helpers.new_http_client("proxy", proxy_ssl_url, "https"),
   }
 
-  return execute_commands(read_json_file(file_path), http_clients)
+  return execute_commands(read_json_file(file_path), http_clients, file_path)
 end
 
 return _M
