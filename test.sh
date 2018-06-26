@@ -210,6 +210,8 @@ main() {
     msg "Running requests against Kong $base_version"
     msg "--------------------------------------------------"
 
+    rm -f responses.dump
+
     for file in $test_suite_dir/before/*.json
     do
         run_json_commands "before/$(basename "$file")" "$file"
