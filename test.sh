@@ -331,16 +331,16 @@ install_kong() {
 
     pushd $dir
         major_version=`builtin echo $version | sed 's/\.[0-9]*$//g'`
-        if [[ -f "$root/patches/kong-$version-no_openresty_version_check.patch" ]]; then
-            msg "Applying kong-$version-no_openresty_version_check patch to Kong $version"
-            patch -p1 < $root/patches/kong-$version-no_openresty_version_check.patch \
+        if [[ -f "$root/patches/$base_repo-$version-no_openresty_version_check.patch" ]]; then
+            msg "Applying $base_repo-$version-no_openresty_version_check patch to Kong $version"
+            patch -p1 < $root/patches/$base_repo-$version-no_openresty_version_check.patch \
                 || show_error "failed to apply patch: $?"
-        elif [[ -f "$root/patches/kong-$major_version-no_openresty_version_check.patch" ]]; then
-            msg "Applying kong-$major_version-no_openresty_version_check patch to Kong $version"
-            patch -p1 < $root/patches/kong-$major_version-no_openresty_version_check.patch \
+        elif [[ -f "$root/patches/$base_repo-$major_version-no_openresty_version_check.patch" ]]; then
+            msg "Applying $base_repo-$major_version-no_openresty_version_check patch to Kong $version"
+            patch -p1 < $root/patches/$base_repo-$major_version-no_openresty_version_check.patch \
                 || show_error "failed to apply patch: $?"
         else
-            msg "No kong-no_openresty_version_check patch to apply to Kong $version"
+            msg "No $base_repo-no_openresty_version_check patch to apply to Kong $version"
         fi
 
         msg "Installing Kong..."
