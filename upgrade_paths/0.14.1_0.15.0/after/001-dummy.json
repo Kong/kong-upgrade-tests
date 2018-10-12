@@ -1,0 +1,10 @@
+[
+  [ "dummy request after, first node",
+    [ "admin", "GET", "/services/" ],
+    [ 200 ]
+  ],
+  [ "dummy request after, second node",
+    [ "admin_2", "GET", "/services/" ],
+    [ 200 ]
+  ]
+]

@@ -335,13 +335,11 @@ end
 
 ------
 
-function _M.execute(admin_url, proxy_url, admin_ssl_url, proxy_ssl_url, file_path)
-  local http_clients = {
-    admin = test_helpers.new_http_client("admin", admin_url, "http"),
-    proxy = test_helpers.new_http_client("proxy", proxy_url, "http"),
-    admin_ssl = test_helpers.new_http_client("admin", admin_ssl_url, "https"),
-    proxy_ssl = test_helpers.new_http_client("proxy", proxy_ssl_url, "https"),
-  }
+function _M.execute(clients, file_path)
+  local http_clients = {}
+  for name, url in pairs(clients) do
+    http_clients[name] = test_helpers.new_http_client(name, url)
+  end
 
   return execute_commands(read_json_file(file_path), http_clients, file_path)
 end

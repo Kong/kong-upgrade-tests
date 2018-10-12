@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
+. ./semver.sh
 
 # kong test instance configuration
 DATABASE=postgres
-ADMIN_LISTEN=127.0.0.1:18001
-PROXY_LISTEN=127.0.0.1:18000
-ADMIN_LISTEN_SSL=127.0.0.1:18444
-PROXY_LISTEN_SSL=127.0.0.1:18443
+prefix=servroot
+export ADMIN_LISTEN=127.0.0.1:18001
+export PROXY_LISTEN=127.0.0.1:18000
+export ADMIN_LISTEN_SSL=127.0.0.1:18444
+export PROXY_LISTEN_SSL=127.0.0.1:18443
+
+prefix_2=servroot2
+export ADMIN_LISTEN_2=127.0.0.1:19001
+export PROXY_LISTEN_2=127.0.0.1:19000
+export ADMIN_LISTEN_SSL_2=127.0.0.1:19444
+export PROXY_LISTEN_SSL_2=127.0.0.1:19443
 
 POSTGRES_HOST=127.0.0.1
 POSTGRES_PORT=5432
@@ -35,7 +43,6 @@ target_repo_dir=
 ret1=
 ret2=
 
-export KONG_PREFIX=$root/tmp/kong
 export KONG_NGINX_WORKER_PROCESSES=1
 
 # clear log file for this run
@@ -163,6 +170,12 @@ main() {
     prepare_repo $target_repo $target_version
     target_repo_dir=$ret1
 
+    has_new_migrations $base_version
+    local base_has_new_migrations=$ret1
+
+    has_new_migrations $target_version
+    local target_has_new_migrations=$ret1
+
     # setup database
 
     if [[ "$DATABASE" == "postgres" ]]; then
@@ -196,14 +209,30 @@ main() {
     install_kong $base_version $base_repo_dir
 
     pushd $base_repo_dir
-        set_env_vars
+        set_env_vars $prefix $ADMIN_LISTEN $PROXY_LISTEN $ADMIN_LISTEN_SSL $PROXY_LISTEN_SSL
         msg "Running $base_version migrations"
-        bin/kong migrations up --vv \
-            || show_error "Kong base version migration failed with: $?"
 
-        msg "Starting Kong $base_version"
+        if [[ $base_has_new_migrations == 0 ]]; then
+          bin/kong migrations bootstrap --vv \
+              || show_error "Base kong migrations bootstrap failed with: $?"
+        fi
+
+        bin/kong migrations up --vv \
+            || show_error "Base kong migrations up failed with: $?"
+
+        if [[ $base_has_new_migrations == 0 ]]; then
+          bin/kong migrations finish --vv \
+              || show_error "Base kong migrations finish failed with: $?"
+        fi
+
+        msg "Starting Kong $base_version (first node)"
         bin/kong start --vv \
-            || show_error "Kong base start failed with: $?"
+            || show_error "Kong base start (first node) failed with: $?"
+
+        set_env_vars $prefix_2 $ADMIN_LISTEN_2 $PROXY_LISTEN_2 $ADMIN_LISTEN_SSL_2 $PROXY_LISTEN_SSL_2
+        msg "Starting Kong $base_version (second node)"
+        bin/kong start --vv \
+            || show_error "Kong base start (second node) failed with: $?"
     popd
 
     msg "--------------------------------------------------"
@@ -218,10 +247,15 @@ main() {
     done
 
     pushd $base_repo_dir
-        bin/kong stop --vv \
-            || show_error "failed to stop Kong with: $?"
+        unset KONG_PREFIX
 
-        msg "$base_version instance ready, stopping Kong"
+        bin/kong stop -p="$prefix" --vv \
+            || show_error "failed to stop Kong (first node) with: $?"
+
+        bin/kong stop -p="$prefix_2" --vv \
+            || show_error "failed to stop Kong (second node) with: $?"
+
+        msg "stopped both nodes for $base_version successfully"
     popd
 
     # Install Kong target version
@@ -230,9 +264,17 @@ main() {
     #######
     # TESTS
     #######
-
     pushd $target_repo_dir
-        set_env_vars
+        set_env_vars $prefix $ADMIN_LISTEN $PROXY_LISTEN $ADMIN_LISTEN_SSL $PROXY_LISTEN_SSL
+        # If bootstrap didn't happen on base, it might be needed on target.
+        # FIXME: This might need to be changed since boostrapping clears the db
+        if [[ $target_has_new_migrations == 0 ]] && [[ $base_has_new_migrations != 0 ]]; then
+          # TEST: run migrations bootstrap
+          bin/kong migrations bootstrap --v >&5 2>&6 \
+              || failed_test "'kong migrations bootstrap' failed with: $?"
+          msg_green "OK"
+        fi
+
         # TEST: run migrations between base and target version
         bin/kong migrations list > $tmp_dir/base.migrations
         msg_test "TEST migrations up: run $target_version migrations"
@@ -244,15 +286,43 @@ main() {
         $root/scripts/diff_migrations $tmp_dir/base.migrations $tmp_dir/target.migrations >&5
 
         # TEST: start target version
-        msg_test "TEST kong start: $target_version starts (migrated)"
+        msg_test "TEST kong start (first node): $target_version starts (migrated)"
         bin/kong start --v >&5 2>&6 \
-            || failed_test "'kong start' failed with: $?"
+            || failed_test "'kong start (first node)' failed with: $?"
+        msg_green "OK"
+
+        set_env_vars $prefix_2 $ADMIN_LISTEN_2 $PROXY_LISTEN_2 $ADMIN_LISTEN_SSL_2 $PROXY_LISTEN_SSL_2
+        msg_test "TEST kong start (second node): $target_version starts (migrated)"
+        bin/kong start --v >&5 2>&6 \
+            || failed_test "'kong start (second node)' failed with: $?"
         msg_green "OK"
     popd
 
-    msg "--------------------------------------------------"
-    msg "Running requests against Kong $target_version"
-    msg "--------------------------------------------------"
+    if [[ $target_has_new_migrations -eq 0 ]]; then
+        msg "------------------------------------------------------"
+        msg "Running 'migrating' requests against Kong $target_version"
+        msg "------------------------------------------------------"
+
+        for file in $test_suite_dir/migrating/*.json
+        do
+            run_json_commands "migrating/$(basename "$file")" "$file"
+        done
+
+        echo
+        msg_green "*** Success ***"
+        echo
+
+        pushd $target_repo_dir
+            #TEST: finish pending migrations
+            bin/kong migrations finish --v >&5 2>&6 \
+              || failed_test "'kong migrations finish' failed with: $?"
+            msg_green "OK"
+        popd
+    fi
+
+    msg "------------------------------------------------------"
+    msg "Running 'after' requests against Kong $target_version"
+    msg "------------------------------------------------------"
 
     for file in $test_suite_dir/after/*.json
     do
@@ -273,6 +343,16 @@ parse_version_arg() {
     else
         ret1=$1
     fi
+}
+
+has_new_migrations() {
+  if [[ $1 -eq "next" ]]; then
+    ret1=0
+    return
+  fi
+
+  semverGT $1 0.14.1
+  ret1=$?
 }
 
 clone_or_pull_repo() {
@@ -311,14 +391,21 @@ prepare_repo() {
 }
 
 set_env_vars() {
+    pref=$1
+    admin=$2
+    proxy=$3
+    admin_ssl=$4
+    proxy_ssl=$5
+
+    export KONG_PREFIX="$pref"
     if grep -q "proxy_listen_ssl" kong.conf.default; then
-        export KONG_ADMIN_LISTEN="$ADMIN_LISTEN"
-        export KONG_PROXY_LISTEN="$PROXY_LISTEN"
-        export KONG_ADMIN_LISTEN_SSL="$ADMIN_LISTEN_SSL"
-        export KONG_PROXY_LISTEN_SSL="$PROXY_LISTEN_SSL"
+        export KONG_ADMIN_LISTEN="$admin"
+        export KONG_PROXY_LISTEN="$proxy"
+        export KONG_ADMIN_LISTEN_SSL="$admin_ssl"
+        export KONG_PROXY_LISTEN_SSL="$proxy_ssl"
     else
-        export KONG_ADMIN_LISTEN="$ADMIN_LISTEN, $ADMIN_LISTEN_SSL ssl"
-        export KONG_PROXY_LISTEN="$PROXY_LISTEN, $PROXY_LISTEN_SSL ssl"
+        export KONG_ADMIN_LISTEN="$admin, $admin_ssl ssl"
+        export KONG_PROXY_LISTEN="$proxy, $proxy_ssl ssl"
     fi
 }
 
@@ -363,10 +450,6 @@ run_json_commands() {
     if [[ -f $filepath ]]; then
       resty -e "package.path = package.path .. ';' .. '$root/?.lua'" \
             $root/util/json_commands_runner.lua \
-            http://$ADMIN_LISTEN \
-            http://$PROXY_LISTEN \
-            http://$ADMIN_LISTEN_SSL \
-            http://$PROXY_LISTEN_SSL \
             $filepath >&5 \
             || failed_test "$name json commands failed with: $?"
         msg_green "OK"
@@ -376,7 +459,10 @@ run_json_commands() {
 }
 
 cleanup() {
-    kill `cat $KONG_PREFIX/pids/nginx.pid 2>/dev/null` 2>/dev/null
+    kill `cat $base_repo_dir/$prefix/pids/nginx.pid 2>/dev/null` 2>/dev/null
+    kill `cat $base_repo_dir/$prefix_2/pids/nginx.pid 2>/dev/null` 2>/dev/null
+    kill `cat $target_repo_dir/$prefix/pids/nginx.pid 2>/dev/null` 2>/dev/null
+    kill `cat $target_repo_dir/$prefix_2/pids/nginx.pid 2>/dev/null` 2>/dev/null
 }
 
 show_help() {

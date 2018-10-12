@@ -5,20 +5,26 @@ local cjson = require "cjson"
 local _M = {}
 local http = require "resty.http"
 
-local function extract_host_port(url)
+local function extract_scheme_host_port(url)
   local parsed = assert(surl.parse(url))
+
+  local scheme = parsed.scheme
+  if not scheme then
+    error("missing scheme in url: " .. url)
+  end
 
   local host = parsed.host
   if not host then
-    error("mising host in url")
+    error("mising host in url: " .. url)
   end
 
   local port = tonumber(parsed.port)
   if not port then
-    error("missing or invalid port in url")
+    error("missing or invalid port in url: " .. url)
   end
 
-  return host, port
+
+  return scheme, host, port
 end
 
 
@@ -116,12 +122,12 @@ local _httpc_mt = {
 }
 
 
-function _M.new_http_client(name, url, scheme)
+function _M.new_http_client(name, url)
   if not url then
     error("missing " .. name .. " url", 2)
   end
 
-  local host, port = extract_host_port(url)
+  local scheme, host, port = extract_scheme_host_port(url)
 
   return setmetatable({
     host = host,
