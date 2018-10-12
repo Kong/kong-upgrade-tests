@@ -1,0 +1,86 @@
+[
+  [ "jwt2_service",
+    [ "admin_2", "POST", "/services", {
+      "name": "jwt2_service",
+      "url": "https://httpbin.org/anything"
+    } ],
+    [ 201, {
+      "name": "jwt2_service",
+      "host": "httpbin.org",
+      "path": "/anything",
+      "protocol": "https"
+    } ]
+  ],
+  [ "jwt2_service_plugin",
+    [ "admin_2", "POST", "/plugins", {
+      "name": "jwt",
+      "service": { "id": "#{jwt2_service.id}" },
+      "config": {
+        "claims_to_verify": [ "exp" ]
+      }
+    } ],
+    [ 201, {
+      "name": "jwt",
+      "service": { "id":  "#{jwt2_service.id}" },
+      "config": {
+        "claims_to_verify": [
+          "exp"
+        ],
+        "anonymous": "",
+        "cookie_names": {},
+        "key_claim_name": "iss",
+        "maximum_expiration": 0,
+        "run_on_preflight": true,
+        "secret_is_base64": false,
+        "uri_param_names": [
+          "jwt2"
+        ]
+      },
+      "enabled": true
+    } ]
+  ],
+  [ "jwt2_route",
+    [ "admin_2", "POST", "/services/#{jwt2_service.id}/routes", {
+      "hosts": [ "jwt2_api.test" ]
+    } ],
+    [ 201, {
+      "hosts": [ "jwt2_api.test" ]
+    } ]
+  ],
+  [ "test jwt2 blocks calls to jwt2_api without a token",
+    [ "proxy_2", "GET", "/", "", { "Host": "jwt2_api.test" } ],
+    [ 401, {
+      "message": "Unauthorized"
+    } ]
+  ],
+  [ "green cluster: list plugins for jwt2_service",
+    [ "admin_2", "GET", "/services/#{jwt2_service.id}/plugins", "", {} ],
+    [ 200, {
+        "data": [
+          {
+            "%created_at": "\\d+",
+            "%updated_at": "\\d+",
+            "connect_timeout": 60000,
+            "host": "httpbin.org",
+            "name": null,
+            "path": "/anything",
+            "port": 80,
+            "protocol": "http",
+            "read_timeout": 60000,
+            "retries": 5,
+            "write_timeout": 60000,
+            "id": "#{jwt2_service.id}"
+          }
+        ],
+        "next": null
+      }
+    ]
+  ],
+
+  [ "green cluster, after: test jwt still blocks calls to jwt_api without a token",
+    [ "proxy_2", "GET", "/", "", { "Host": "jwt_api.test" } ],
+    [ 401, {
+      "message": "Unauthorized"
+    } ]
+  ]
+]

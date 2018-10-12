@@ -14,8 +14,11 @@ following example:
 
 ```
 upgrade_paths
-└── 0.12_0.13
+└── 0.14_0.15
     ├── before
+    │   ├── 001-api.json
+    │   └── 002-rate-limiting.json
+    ├── migrating
     │   ├── 001-api.json
     │   └── 002-rate-limiting.json
     └── after
@@ -28,9 +31,8 @@ upgrade_paths
 Name it however you want, here we chose `0.12_0.13`. Inspire yourself from the
 existing upgrade paths tests to write your own.
 
-All files are optional (you can have `after/` tests only, for example). You
-can name your tests however you want as long as they have a `.json` extension
-and are placed under `before/` or `after/`. The tests will run in
+You can name your tests however you want as long as they have a `.json` extension
+and are placed under `before/`, `migrating/` or `after/`. The tests will run in
 lexicographical order, so we recommend the convention of numbering them as
 shown above.
 
@@ -43,16 +45,18 @@ only run for that file.
 This script will do the following:
 
 1. Install a base version
-2. Migrate a test database to the base version
+2. Migrate a test database to the base version, bootstrapping if needed
 3. Start Kong
 4. **Run all tests in the `before/` directory**
-5. Stop Kong
-6. Install the target version
-7. **Run the migrations** -> on non success, we caught an error
-8. Start Kong
-4. **Run all tests in the `after/` directory**
-10. Stop Kong
-11. Cleanup
+5. Install the target version
+6. **Run `kong migrations up`** from the target version folder
+7. **Run all tests in the `migrating/` directory** using two nodes, one in the base
+   version and one in the target version.
+8. **Run `kong migrations finish`**
+9. Stop kong base version node
+10. **Run all tests in the `after/` directory** on the target kong node
+11. Stop the target kong node
+12. Cleanup
 
 ## Usage
 
@@ -83,6 +87,8 @@ Examples:
  ./test.sh -b kong-private:0.10.0 -t kong-private:0.11.0 upgrade_paths/0.10_to_0.12
  ./test.sh -b kong-ee:0.10.0 -t kong-ee:0.11.0 upgrade_paths/0.10_to_0.12
  ./test.sh -b kong:0.12.1 -t kong-private:0.13.0preview1 upgrade_paths/0.12_0.13
+
+ ./test.sh -b kong:0.14.1 -t kong:next upgrade_paths/0.14.1_0.15.0
 ```
 
 ## JSON DSL for tests
@@ -142,6 +148,13 @@ clients for an HTTP request:
 * `"proxy"`
 * `"admin_ssl"`
 * `"proxy_ssl"`
+* `"admin_2"`
+* `"proxy_2"`
+* `"admin_ssl_2"`
+* `"proxy_ssl_2"`
+
+The types that end in `_2` will do requests against the target version, while the others will
+use the kong in the base version.
 
 Example:
 
