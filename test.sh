@@ -38,6 +38,7 @@ test_suite_dir=
 ssh_key=$HOME/.ssh/id_rsa
 
 # control variables
+keep=0
 base_repo_dir=
 target_repo_dir=
 ret1=
@@ -84,6 +85,9 @@ main() {
                 ;;
             -f|--force)
                 rm -rf $cache_dir
+                ;;
+            -k|--keep)
+                keep=1
                 ;;
             --ssh-key)
                 ssh_key=$2
@@ -140,7 +144,9 @@ main() {
         target_repo=$ret2
     fi
 
-    rm -rf $tmp_dir
+    if ! [[ "$keep" = "1" ]]; then
+        rm -rf $tmp_dir
+    fi
     mkdir -p $cache_dir $tmp_dir
 
     #kong prepare
@@ -152,16 +158,18 @@ main() {
     #   creates the following structure:
     #
     #   ├── cache               -> long-lived cache of git repositories
-    #   │   └── kong
+    #   │   └── kong
     #   ├── err.log             -> error logs for this run
     #   ├── test.sh
     #   └── tmp
     #       ├── kong-0.11.2     -> short-lived checkout of 0.11.2
     #       └── kong-0.12.1     -> short-lived checkout of 0.12.1
 
-    clone_or_pull_repo $base_repo
-    if [[ "$base_repo" != "$target_repo" ]]; then
-        clone_or_pull_repo $target_repo
+    if [[ "$keep" = "0" ]]; then
+        clone_or_pull_repo $base_repo
+        if [[ "$base_repo" != "$target_repo" ]]; then
+            clone_or_pull_repo $target_repo
+        fi
     fi
 
     prepare_repo $base_repo $base_version
@@ -209,7 +217,9 @@ main() {
     install_kong $base_version $base_repo_dir
 
     pushd $base_repo_dir
-        set_env_vars $prefix $ADMIN_LISTEN $PROXY_LISTEN $ADMIN_LISTEN_SSL $PROXY_LISTEN_SSL
+
+        using_kong_node 1
+
         msg "Running $base_version migrations"
 
         if [[ $base_has_new_migrations == 0 ]]; then
@@ -228,11 +238,6 @@ main() {
         msg "Starting Kong $base_version (first node)"
         bin/kong start --vv \
             || show_error "Kong base start (first node) failed with: $?"
-
-        set_env_vars $prefix_2 $ADMIN_LISTEN_2 $PROXY_LISTEN_2 $ADMIN_LISTEN_SSL_2 $PROXY_LISTEN_SSL_2
-        msg "Starting Kong $base_version (second node)"
-        bin/kong start --vv \
-            || show_error "Kong base start (second node) failed with: $?"
     popd
 
     msg "--------------------------------------------------"
@@ -246,37 +251,39 @@ main() {
         run_json_commands "before/$(basename "$file")" "$file"
     done
 
-    pushd $base_repo_dir
-        unset KONG_PREFIX
-
-        bin/kong stop -p="$prefix" --vv \
-            || show_error "failed to stop Kong (first node) with: $?"
-
-        bin/kong stop -p="$prefix_2" --vv \
-            || show_error "failed to stop Kong (second node) with: $?"
-
-        msg "stopped both nodes for $base_version successfully"
-    popd
-
     # Install Kong target version
     install_kong $target_version $target_repo_dir
 
     #######
     # TESTS
     #######
+
+    pushd $base_repo_dir
+        using_kong_node 1
+
+        bin/kong migrations list > $tmp_dir/base.migrations
+    popd
+
     pushd $target_repo_dir
-        set_env_vars $prefix $ADMIN_LISTEN $PROXY_LISTEN $ADMIN_LISTEN_SSL $PROXY_LISTEN_SSL
-        # If bootstrap didn't happen on base, it might be needed on target.
-        # FIXME: This might need to be changed since boostrapping clears the db
-        if [[ $target_has_new_migrations == 0 ]] && [[ $base_has_new_migrations != 0 ]]; then
-          # TEST: run migrations bootstrap
-          bin/kong migrations bootstrap --v >&5 2>&6 \
-              || failed_test "'kong migrations bootstrap' failed with: $?"
-          msg_green "OK"
-        fi
+
+        using_kong_node 2
+
+
+# FIXME
+#        # If bootstrap didn't happen on base, it might be needed on target.
+#        if [[ $target_has_new_migrations == 0 ]] && [[ $base_has_new_migrations != 0 ]]; then
+#
+#          msg "------------------------------------------------------"
+#          msg "Bootstrapping Kong $target_version"
+#          msg "------------------------------------------------------"
+#
+#          # TEST: run migrations bootstrap
+#          bin/kong migrations bootstrap --v >&5 2>&6 \
+#              || failed_test "'kong migrations bootstrap' failed with: $?"
+#          msg_green "OK"
+#        fi
 
         # TEST: run migrations between base and target version
-        bin/kong migrations list > $tmp_dir/base.migrations
         msg_test "TEST migrations up: run $target_version migrations"
         bin/kong migrations up --v >&5 2>&6 \
             || failed_test "'kong migrations up' failed with: $?"
@@ -285,13 +292,6 @@ main() {
 
         $root/scripts/diff_migrations $tmp_dir/base.migrations $tmp_dir/target.migrations >&5
 
-        # TEST: start target version
-        msg_test "TEST kong start (first node): $target_version starts (migrated)"
-        bin/kong start --v >&5 2>&6 \
-            || failed_test "'kong start (first node)' failed with: $?"
-        msg_green "OK"
-
-        set_env_vars $prefix_2 $ADMIN_LISTEN_2 $PROXY_LISTEN_2 $ADMIN_LISTEN_SSL_2 $PROXY_LISTEN_SSL_2
         msg_test "TEST kong start (second node): $target_version starts (migrated)"
         bin/kong start --v >&5 2>&6 \
             || failed_test "'kong start (second node)' failed with: $?"
@@ -311,6 +311,17 @@ main() {
         echo
         msg_green "*** Success ***"
         echo
+
+        using_kong_node 1
+
+        pushd $base_repo_dir
+            unset KONG_PREFIX
+
+            bin/kong stop -p="$prefix" --vv \
+                || show_error "failed to stop Kong (first node) with: $?"
+        popd
+
+        using_kong_node 2
 
         pushd $target_repo_dir
             #TEST: finish pending migrations
@@ -346,12 +357,12 @@ parse_version_arg() {
 }
 
 has_new_migrations() {
-  if [[ $1 -eq "next" ]]; then
+  if [[ "$1" = "next" ]]; then
     ret1=0
     return
   fi
 
-  semverGT $1 0.14.1
+  semverGT $1 0.14.1 5>/dev/null
   ret1=$?
 }
 
@@ -377,6 +388,11 @@ prepare_repo() {
     repo=$1
     version=$2
     tmp_repo_name=$repo-`builtin echo $version | sed 's/\//_/g'`
+    ret1=$tmp_dir/$tmp_repo_name
+
+    if [[ "$keep" = 1 ]]; then
+        return
+    fi
 
     pushd $tmp_dir
         cp -R $cache_dir/$repo $tmp_repo_name \
@@ -387,7 +403,6 @@ prepare_repo() {
         popd
     popd
 
-    ret1=$tmp_dir/$tmp_repo_name
 }
 
 set_env_vars() {
@@ -409,6 +424,15 @@ set_env_vars() {
     fi
 }
 
+using_kong_node() {
+  if [[ "$1" = "1" ]]
+  then
+    set_env_vars $prefix $ADMIN_LISTEN $PROXY_LISTEN $ADMIN_LISTEN_SSL $PROXY_LISTEN_SSL
+  else
+    set_env_vars $prefix_2 $ADMIN_LISTEN_2 $PROXY_LISTEN_2 $ADMIN_LISTEN_SSL_2 $PROXY_LISTEN_SSL_2
+  fi
+}
+
 install_kong() {
     version=$1
     dir=$2
@@ -418,16 +442,18 @@ install_kong() {
 
     pushd $dir
         major_version=`builtin echo $version | sed 's/\.[0-9]*$//g'`
-        if [[ -f "$root/patches/kong-$version-no_openresty_version_check.patch" ]]; then
-            msg "Applying kong-$version-no_openresty_version_check patch to Kong $version"
-            patch -p1 < $root/patches/kong-$version-no_openresty_version_check.patch \
-                || show_error "failed to apply patch: $?"
-        elif [[ -f "$root/patches/kong-$major_version-no_openresty_version_check.patch" ]]; then
-            msg "Applying kong-$major_version-no_openresty_version_check patch to Kong $version"
-            patch -p1 < $root/patches/kong-$major_version-no_openresty_version_check.patch \
-                || show_error "failed to apply patch: $?"
-        else
-            msg "No kong-no_openresty_version_check patch to apply to Kong $version"
+        if [[ "$keep" = 0 ]]; then
+          if [[ -f "$root/patches/kong-$version-no_openresty_version_check.patch" ]]; then
+              msg "Applying kong-$version-no_openresty_version_check patch to Kong $version"
+              patch -p1 < $root/patches/kong-$version-no_openresty_version_check.patch \
+                  || show_error "failed to apply patch: $?"
+          elif [[ -f "$root/patches/kong-$major_version-no_openresty_version_check.patch" ]]; then
+              msg "Applying kong-$major_version-no_openresty_version_check patch to Kong $version"
+              patch -p1 < $root/patches/kong-$major_version-no_openresty_version_check.patch \
+                  || show_error "failed to apply patch: $?"
+          else
+              msg "No kong-no_openresty_version_check patch to apply to Kong $version"
+          fi
         fi
 
         msg "Installing Kong..."

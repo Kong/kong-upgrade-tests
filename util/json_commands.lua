@@ -36,7 +36,11 @@ local function assert_table_match(expected, given, context)
       assert(ngx.re.match(given[pk], v), errmsg)
 
     else
-      assert.same(v, given[k], context .. ": mismatch at key '" .. k .. "'")
+      if type(v) == "table" then
+        assert_table_match(k, given[k], context .. "." .. k)
+      else
+        assert.same(v, given[k], context .. ": mismatch at key '" .. k .. "'")
+      end
     end
   end
 end
@@ -308,6 +312,17 @@ local function execute_commands(commands, http_clients, file_path)
     elseif request.type == "shell" then
       response = run_shell_command(request)
     end
+
+    print("========================================")
+    print("Command: " .. command[1])
+    print("========================================")
+    pretty.dump(command[2])
+    print("----------------------------------------")
+    print("Expected response: ")
+    pretty.dump(expected_response)
+    print("----------------------------------------")
+    print("Received Response: ")
+    pretty.dump(response)
 
     validate_response(response, expected_response, context .. " response")
     responses[name] = response.body
