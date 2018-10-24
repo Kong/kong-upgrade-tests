@@ -265,23 +265,7 @@ main() {
     popd
 
     pushd $target_repo_dir
-
         using_kong_node 2
-
-
-# FIXME
-#        # If bootstrap didn't happen on base, it might be needed on target.
-#        if [[ $target_has_new_migrations == 0 ]] && [[ $base_has_new_migrations != 0 ]]; then
-#
-#          msg "------------------------------------------------------"
-#          msg "Bootstrapping Kong $target_version"
-#          msg "------------------------------------------------------"
-#
-#          # TEST: run migrations bootstrap
-#          bin/kong migrations bootstrap --v >&5 2>&6 \
-#              || failed_test "'kong migrations bootstrap' failed with: $?"
-#          msg_green "OK"
-#        fi
 
         # TEST: run migrations between base and target version
         msg_test "TEST migrations up: run $target_version migrations"
