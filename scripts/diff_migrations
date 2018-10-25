@@ -21,11 +21,13 @@ local function read_migrations(filename)
   for line in fd:lines() do
     local class, list = line:match("^([^:]*): (.*)$")
     local migs = {}
-    for mig in list:gmatch("[^, ]+") do
-      table.insert(migs, mig)
-      migs[mig] = true
+    if class and list then
+      for mig in list:gmatch("[^, ]+") do
+        table.insert(migs, mig)
+        migs[mig] = true
+      end
+      migrations[class] = migs
     end
-    migrations[class] = migs
   end
   fd:close()
   return migrations

@@ -36,7 +36,11 @@ local function assert_table_match(expected, given, context)
       assert(ngx.re.match(given[pk], v), errmsg)
 
     else
-      assert.same(v, given[k], context .. ": mismatch at key '" .. k .. "'")
+      if type(v) == "table" then
+        assert_table_match(k, given[k], context .. "." .. k)
+      else
+        assert.same(v, given[k], context .. ": mismatch at key '" .. k .. "'")
+      end
     end
   end
 end
@@ -309,6 +313,17 @@ local function execute_commands(commands, http_clients, file_path)
       response = run_shell_command(request)
     end
 
+    print("========================================")
+    print("Command: " .. command[1])
+    print("========================================")
+    pretty.dump(command[2])
+    print("----------------------------------------")
+    print("Expected response: ")
+    pretty.dump(expected_response)
+    print("----------------------------------------")
+    print("Received Response: ")
+    pretty.dump(response)
+
     validate_response(response, expected_response, context .. " response")
     responses[name] = response.body
 
@@ -335,13 +350,11 @@ end
 
 ------
 
-function _M.execute(admin_url, proxy_url, admin_ssl_url, proxy_ssl_url, file_path)
-  local http_clients = {
-    admin = test_helpers.new_http_client("admin", admin_url, "http"),
-    proxy = test_helpers.new_http_client("proxy", proxy_url, "http"),
-    admin_ssl = test_helpers.new_http_client("admin", admin_ssl_url, "https"),
-    proxy_ssl = test_helpers.new_http_client("proxy", proxy_ssl_url, "https"),
-  }
+function _M.execute(clients, file_path)
+  local http_clients = {}
+  for name, url in pairs(clients) do
+    http_clients[name] = test_helpers.new_http_client(name, url)
+  end
 
   return execute_commands(read_json_file(file_path), http_clients, file_path)
 end
