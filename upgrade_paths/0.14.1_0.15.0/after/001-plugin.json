@@ -26,14 +26,14 @@
         "claims_to_verify": [
           "exp"
         ],
-        "anonymous": "",
+        "anonymous": null,
         "cookie_names": {},
         "key_claim_name": "iss",
         "maximum_expiration": 0,
         "run_on_preflight": true,
         "secret_is_base64": false,
         "uri_param_names": [
-          "jwt2"
+          "jwt"
         ]
       },
       "enabled": true
@@ -57,19 +57,23 @@
     [ "admin_2", "GET", "/services/#{jwt2_service.id}/plugins", "", {} ],
     [ 200, {
         "data": [
-          {
+          { "name": "jwt",
             "%created_at": "\\d+",
-            "%updated_at": "\\d+",
-            "connect_timeout": 60000,
-            "host": "httpbin.org",
-            "name": null,
-            "path": "/anything",
-            "port": 80,
-            "protocol": "http",
-            "read_timeout": 60000,
-            "retries": 5,
-            "write_timeout": 60000,
-            "id": "#{jwt2_service.id}"
+            "service": { "id": "#{jwt2_service.id}" },
+            "config": {
+              "claims_to_verify": [
+                "exp"
+              ],
+              "anonymous": null,
+              "cookie_names": {},
+              "key_claim_name": "iss",
+              "maximum_expiration": 0,
+              "run_on_preflight": true,
+              "secret_is_base64": false,
+              "uri_param_names": [
+                "jwt"
+              ]
+            }
           }
         ],
         "next": null
