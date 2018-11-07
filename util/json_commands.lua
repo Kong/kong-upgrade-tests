@@ -37,7 +37,7 @@ local function assert_table_match(expected, given, context)
 
     else
       if type(v) == "table" then
-        assert_table_match(k, given[k], context .. "." .. k)
+        assert_table_match(v, given[k], context .. "." .. k)
       else
         assert.same(v, given[k], context .. ": mismatch at key '" .. k .. "'")
       end
