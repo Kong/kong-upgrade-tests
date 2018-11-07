@@ -12,6 +12,9 @@ local function show_usage()
     "\n* $PROXY_LISTEN_2" ..
     "\n* $ADMIN_LISTEN_SSL_2" ..
     "\n* $PROXY_LISTEN_SSL_2" ..
+    "\n* $POSTGRES_HOST" ..
+    "\n* $POSTGRES_PORT" ..
+    "\n* $POSTGRES_DATABASE" ..
     "\nIf any of these is missing, it will just exit with this error message."
   )
   os.exit(1)
@@ -27,10 +30,15 @@ local admin_2     = os.getenv("ADMIN_LISTEN_2")
 local proxy_2     = os.getenv("PROXY_LISTEN_2")
 local admin_ssl_2 = os.getenv("ADMIN_LISTEN_SSL_2")
 local proxy_ssl_2 = os.getenv("PROXY_LISTEN_SSL_2")
+local pg_host     = os.getenv("POSTGRES_HOST")
+local pg_port     = os.getenv("POSTGRES_PORT")
+local pg_database = os.getenv("POSTGRES_DATABASE")
 
 if not arg[1]
   or not admin or not admin_ssl or not proxy or not proxy_ssl
-  or not admin_2 or not admin_ssl_2 or not proxy_2 or not proxy_ssl_2 then
+  or not admin_2 or not admin_ssl_2 or not proxy_2 or not proxy_ssl_2
+  or not pg_host or not pg_port or not pg_database
+then
   show_usage()
 end
 

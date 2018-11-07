@@ -4,6 +4,7 @@ local test_helpers = require "util.test_helpers"
 local assert = require "luassert"
 local pretty = require "pl.pretty"
 local file = require "pl.file"
+local pgmoon = require "pgmoon"
 
 
 local _M = {}
@@ -147,6 +148,16 @@ local function parse_command_shell_request(request, context)
 end
 
 
+local function parse_command_psql_request(request, context)
+  if #request < 2 then
+    exit("%s: a psql request must be an array of 2 elements", context)
+  end
+  return { type = "psql",
+           query = request[2],
+         }
+end
+
+
 local function parse_command_http_request(request, http_clients, context, responses)
   if #request < 3 then
     exit("%s: the request must be an array of at least 3 elements", context)
@@ -179,13 +190,16 @@ end
 
 
 local function parse_command_request(request, http_clients, context, responses)
-  local ok, len = is_sequence(request)
-  if not ok then
+  if not is_sequence(request) then
     exit("%s: the request must be an array", context)
   end
 
   if request[1] == "shell" then
-    return parse_command_shell_request(request, context, len)
+    return parse_command_shell_request(request, context)
+  end
+
+  if request[1] == "psql" then
+    return parse_command_psql_request(request, context)
   end
 
   return parse_command_http_request(request, http_clients, context, responses)
@@ -290,6 +304,27 @@ local function run_shell_command(request)
 end
 
 
+local function run_psql_command(command)
+
+  local pg = pgmoon.new({
+    host = os.getenv("POSTGRES_HOST"),
+    port = os.getenv("POSTGRES_PORT"),
+    database = os.getenv("POSTGRES_DATABASE"),
+    user = "kong",
+  })
+
+  assert(pg:connect())
+  local res, num_queries = assert(pg:query(command.query))
+  assert(pg:disconnect())
+
+  return {
+    status = num_queries,
+    body = res,
+  }
+end
+
+
+
 local function execute_commands(commands, http_clients, file_path)
   local ok, len = is_sequence(commands)
   if not ok or len == 0 then
@@ -303,13 +338,16 @@ local function execute_commands(commands, http_clients, file_path)
     local command = commands[i]
     local name, request, expected_response, context = parse_command(command, http_clients, i, responses)
 
-    local response
+    local response, err
 
     if request.type == "http" then
-      response = send_http_request(request)
+      response, err = send_http_request(request)
 
     elseif request.type == "shell" then
-      response = run_shell_command(request)
+      response, err = run_shell_command(request)
+
+    elseif request.type == "psql" then
+      response, err = run_psql_command(request)
     end
 
     print("========================================")
@@ -322,6 +360,10 @@ local function execute_commands(commands, http_clients, file_path)
     print("----------------------------------------")
     print("Received Response: ")
     pretty.dump(response)
+    if err then
+      print("Received Error:")
+      pretty.dump(err)
+    end
 
     validate_response(response, expected_response, context .. " response")
     responses[name] = response.body
