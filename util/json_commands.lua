@@ -22,10 +22,6 @@ local function assert_table_match(expected, given, context)
   end
 
   for k, v in pairs(expected) do
-    if type(v) ~= type(given[k]) then
-      exit("%s: expected object at key '%s' to be of type %s", context, tostring(k), type(v))
-    end
-
     local pk = tostring(k):match("^%%(.*)$")
     if pk then
       local errmsg = context .. ": regex mismatch at key '" .. k .. "':\n" ..
@@ -36,6 +32,9 @@ local function assert_table_match(expected, given, context)
       assert(ngx.re.match(given[pk], v), errmsg)
 
     else
+      if type(v) ~= type(given[k]) then
+        exit("%s: expected object at key '%s' to be of type %s", context, tostring(k), type(v))
+      end
       if type(v) == "table" then
         assert_table_match(v, given[k], context .. "." .. k)
       else
