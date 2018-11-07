@@ -1,0 +1,25 @@
+[
+  [ "service for route without name",
+    [ "admin", "POST", "/services", {
+      "name": "route_name_service",
+      "url": "https://httpbin.org/anything"
+    } ],
+    [ 201, {
+      "name": "route_name_service",
+      "host": "httpbin.org",
+      "path": "/anything",
+      "protocol": "https"
+    } ]
+  ],
+  [ "route without name throws error",
+    [ "admin", "POST", "/services/route_name_service/routes", {
+      "hosts": [ "route-with-name.test" ],
+      "name": "route-name"
+    } ],
+    [ 400, {
+      "fields": {
+        "name": "unknown field"
+      }
+    } ]
+  ]
+]
