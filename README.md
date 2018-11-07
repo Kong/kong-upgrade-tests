@@ -120,6 +120,21 @@ Tests are written in a JSON-based DSL, described below:
     } ]
   ],
 
+  [ "run a postgresql SQL statement, get the results back",
+    [ "psql", "SELECT * FROM services" ],
+    [ 1, [
+      { "name": "service_1",
+        "id": "c75e22b7-1e77-41b1-9d8b-e1704d4d08ae",
+        ...
+      },
+      { "name": "service_2",
+        "id": "3ac42fe7-898e-4ed3-ac13-3dde3fa329d0",
+        ...
+      }
+    ]
+    } ]
+  ],
+
 ]
 ```
 
@@ -255,6 +270,33 @@ Example:
 ```
 [ 0 ]
 ```
+
+### PSQL requests
+
+```
+[ "psql", <sql> ]
+```
+
+* `<sql>` is a string with one or more sql statements separated by `;`.
+
+Example:
+
+```
+[ "psql", "SELECT * FROM routes" ]
+```
+
+### PSQL responses
+
+```
+[ <number-of-statements>, <body> ]
+```
+
+* `<number-of-statements>` is the number of SQL statements that were contained on the `sql`
+   portion of the request. For example, the string `"SELECT * FROM routes; SELECT * FROM services"`
+   contains 2 SQL statements.
+* `<body>` is an array with zero or more results. If there are results, they will be encoded as
+  json objects. Their format depends on the SQL statements introduced.
+
 
 ### String interpolation and regular expressions
 
