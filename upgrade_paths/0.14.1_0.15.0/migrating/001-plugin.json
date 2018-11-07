@@ -16,26 +16,21 @@
       }
     ]
   ],
-  [ "green cluster: list services",
-    [ "admin_2", "GET", "/services", "", {} ],
+  [ "green cluster: get jwt_service",
+    [ "admin_2", "GET", "/services/#{jwt_service.id}", "", {} ],
     [ 200, {
-        "data": [
-          {
-            "%created_at": "\\d+",
-            "%updated_at": "\\d+",
-            "connect_timeout": 60000,
-            "host": "httpbin.org",
-            "name": null,
-            "path": "/anything",
-            "port": 80,
-            "protocol": "http",
-            "read_timeout": 60000,
-            "retries": 5,
-            "write_timeout": 60000,
-            "id": "#{jwt_service.id}"
-          }
-        ],
-        "next": null
+      "%created_at": "\\d+",
+      "%updated_at": "\\d+",
+      "connect_timeout": 60000,
+      "host": "httpbin.org",
+      "name": "jwt_service",
+      "path": "/anything",
+      "port": 443,
+      "protocol": "https",
+      "read_timeout": 60000,
+      "retries": 5,
+      "write_timeout": 60000,
+      "id": "#{jwt_service.id}"
       }
     ]
   ],
