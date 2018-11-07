@@ -1,0 +1,12 @@
+[
+  [ "route with name is accepted",
+    [ "admin_2", "POST", "/services/route_name_service/routes", {
+      "hosts": [ "route-with-name.test" ],
+      "name": "route-name"
+    } ],
+    [ 201, {
+      "hosts": [ "route-with-name.test" ],
+      "name": "route-name"
+    } ]
+  ]
+]
