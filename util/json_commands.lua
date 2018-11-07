@@ -29,10 +29,10 @@ local function assert_table_match(expected, given, context)
     local pk = tostring(k):match("^%%(.*)$")
     if pk then
       local errmsg = context .. ": regex mismatch at key '" .. k .. "':\n" ..
-                     "Passed in: \n" ..
-                     "(string) " .. v .. "\n" ..
+                     "Given: \n" ..
+                     "(string) " .. given[pk] .. "\n" ..
                      "Expected to match: \n" ..
-                     "(regex) " .. given[pk]
+                     "(regex) " .. v
       assert(ngx.re.match(given[pk], v), errmsg)
 
     else
