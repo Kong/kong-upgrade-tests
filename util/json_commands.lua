@@ -202,6 +202,10 @@ local function parse_command_request(request, http_clients, context, responses)
     return parse_command_psql_request(request, context)
   end
 
+  if request[1] == "psql" then
+    return parse_command_psql_request(request, context)
+  end
+
   return parse_command_http_request(request, http_clients, context, responses)
 end
 
