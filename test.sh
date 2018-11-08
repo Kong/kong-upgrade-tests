@@ -43,6 +43,7 @@ base_repo_dir=
 target_repo_dir=
 ret1=
 ret2=
+force_migrating=0
 
 export KONG_NGINX_WORKER_PROCESSES=1
 
@@ -83,7 +84,10 @@ main() {
                 target_version=$2
                 shift
                 ;;
-            -f|--force)
+            -m|--force-migrating)
+                force_migrating=1
+                ;;
+            -f|--force-git-clone)
                 rm -rf $cache_dir
                 ;;
             -k|--keep)
@@ -271,6 +275,7 @@ main() {
         msg_test "TEST migrations up: run $target_version migrations"
         bin/kong migrations up --v >&5 2>&6 \
             || failed_test "'kong migrations up' failed with: $?"
+        bin/kong migrations list >&5 2>&6
         msg_green "OK"
         bin/kong migrations list > $tmp_dir/target.migrations
 
@@ -282,7 +287,7 @@ main() {
         msg_green "OK"
     popd
 
-    if [[ $target_has_new_migrations -eq 0 ]]; then
+    if [[ ("$target_has_new_migrations" -eq 0) || ("$force_migrating" -eq 1) ]]; then
         msg "------------------------------------------------------"
         msg "Running 'migrating' requests against Kong $target_version"
         msg "------------------------------------------------------"
@@ -479,14 +484,15 @@ show_help() {
     echo "Usage: $0 [options...] --base <base> --target <target> TEST_SUITE"
     echo
     echo "Arguments:"
-    echo "  -b,--base          base version"
-    echo "  -t,--target        target version"
-    echo "  TEST_SUITE         path to test suite"
+    echo "  -b,--base            base version"
+    echo "  -t,--target          target version"
+    echo "  TEST_SUITE           path to test suite"
     echo
     echo "Options:"
-    echo "  -d,--database      database (default: postgres)"
-    echo "  -f,--force         cleanup cache and force git clone"
-    echo "  --ssh-key          ssh key to use when cloning repositories"
+    echo "  -d,--database        database (default: postgres)"
+    echo "  -f,--force-git-clone cleanup cache and force git clone"
+    echo "  -m,--force-migrating run the migrating specs (needed on non-semantic-versioned tags)"
+    echo "  --ssh-key            ssh key to use when cloning repositories"
     echo
 }
 
