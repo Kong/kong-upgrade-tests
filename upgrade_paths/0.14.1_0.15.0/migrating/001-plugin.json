@@ -34,11 +34,12 @@
       }
     ]
   ],
-  [ "green cluster: list plugins for jwt_service",
+  [ "green cluster: list plugins for jwt_service, with new run_on field",
     [ "admin_2", "GET", "/services/#{jwt_service.id}/plugins", "", {} ],
     [ 200, {
         "data": [
           {
+            "run_on": "first"
           }
         ],
         "next": null
