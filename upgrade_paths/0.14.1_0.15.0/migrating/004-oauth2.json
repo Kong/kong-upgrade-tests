@@ -1,0 +1,29 @@
+[
+  [ "oauth2_credentials now has a redirect_uris field instead of a redirect_uri field",
+    [ "admin_2", "GET", "/consumers/#{oauth2_consumer.id}/oauth2/#{oauth2_credentials.id}" ],
+    [ 200, {
+      "name": "testapp",
+      "client_id": "clientid123",
+      "client_secret": "secret123",
+      "redirect_uris": [ "http://google.com/kong" ],
+      "consumer": { "id": "#{oauth2_consumer.id}" }
+    } ]
+  ],
+  [ "new oauth2_credentials are created with the redirect_uris field",
+    [ "admin_2", "POST", "/consumers/#{oauth2_consumer.id}/oauth2", {
+      "name": "testapp",
+      "client_id": "clientid456",
+      "client_secret": "secret123",
+      "redirect_uris": [ "http://google.com/kong" ],
+      "consumer": { "id": "#{oauth2_consumer.id}" }
+    } ],
+    [ 201, {
+      "name": "testapp",
+      "client_id": "clientid456",
+      "client_secret": "secret123",
+      "redirect_uris": [ "http://google.com/kong" ],
+      "consumer": { "id": "#{oauth2_consumer.id}" }
+    } ]
+  ]
+]
+
