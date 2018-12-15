@@ -1,0 +1,61 @@
+[
+  [ "targets have no index called targets_upstream_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'targets' and indexname = 'targets_upstream_id_idx'" ],
+    [ 1, [] ]
+  ],
+
+  [ "upstreams index on name is named upstreams_name_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'upstreams' and indexname = 'upstreams_name_idx'" ],
+    [ 1, [ { "tablename": "upstreams", "indexname": "upstreams_name_idx" } ] ]
+  ],
+
+  [ "consumers index on custom_id is named custom_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'consumers' and indexname = 'custom_id_idx'" ],
+    [ 1, [ { "tablename": "consumers", "indexname": "custom_id_idx" } ] ]
+  ],
+
+  [ "consumers index on username is named consumers_username_key",
+    [ "psql", "select * from pg_indexes where tablename = 'consumers' and indexname = 'consumers_username_key'" ],
+    [ 1, [ { "tablename": "consumers", "indexname": "consumers_username_key" } ] ]
+  ],
+
+  [ "certificates id index is called ssl_certificates_pkey",
+    [ "psql", "select * from pg_indexes where tablename = 'certificates' and indexname = 'ssl_certificates_pkey'" ],
+    [ 1, [ { "tablename": "certificates", "indexname": "ssl_certificates_pkey" } ] ]
+  ],
+
+  [ "cluster events at index is called idx_cluster_events_at",
+    [ "psql", "select * from pg_indexes where tablename = 'cluster_events' and indexname = 'idx_cluster_events_at'" ],
+    [ 1, [ { "tablename": "cluster_events", "indexname": "idx_cluster_events_at" } ] ]
+  ],
+
+  [ "cluster events channel index is called idx_cluster_events_channel",
+    [ "psql", "select * from pg_indexes where tablename = 'cluster_events' and indexname = 'idx_cluster_events_channel'" ],
+    [ 1, [ { "tablename": "cluster_events", "indexname": "idx_cluster_events_channel" } ] ]
+  ],
+
+  [ "routes index on service_id is called routes_fkey_service",
+    [ "psql", "select * from pg_indexes where tablename = 'routes' and indexname = 'routes_fkey_service'" ],
+    [ 1, [ { "tablename": "routes", "indexname": "routes_fkey_service" } ] ]
+  ],
+
+  [ "snis have no index called snis_fkey_certificate",
+    [ "psql", "select * from pg_indexes where tablename = 'snis' and indexname = 'snis_fkey_certificate'" ],
+    [ 1, [] ]
+  ],
+  [ "snis have no index called snis_certificate_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'snis' and indexname = 'snis_certificate_id_idx'" ],
+    [ 1, [] ]
+  ],
+
+
+  [ "snis are indexed by name with snis_name_unique",
+    [ "psql", "select * from pg_indexes where tablename = 'snis' and indexname = 'snis_name_unique'" ],
+    [ 1, [ { "tablename": "snis", "indexname": "snis_name_unique" } ] ]
+  ],
+
+  [ "plugins are indexed by consumer_id with plugins_consumer_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'plugins' and indexname = 'plugins_consumer_idx'" ],
+    [ 1, [ { "tablename": "plugins", "indexname": "plugins_consumer_idx" } ] ]
+  ]
+]
