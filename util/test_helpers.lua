@@ -31,7 +31,7 @@ end
 local function build_request_function(http_method)
   return function(self, opts)
     local headers = opts.headers or {}
-    local timeout = opts.timeout or 3000
+    local timeout = opts.timeout or 10000
     local body = opts.body
     local path = opts.path
 
