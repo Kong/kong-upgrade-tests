@@ -346,7 +346,7 @@ parse_version_arg() {
 }
 
 has_new_migrations() {
-  if [[ "$1" = "next" ]]; then
+  if [[ "$1" = "next" ]] || [[ "$1" =~ "/" ]]; then
     ret1=0
     return
   fi
