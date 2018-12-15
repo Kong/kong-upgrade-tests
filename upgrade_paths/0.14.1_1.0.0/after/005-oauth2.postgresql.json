@@ -1,0 +1,7 @@
+[
+  [ "oauth2_credentials does not have a redirect_uri column any more",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'redirect_uri' and table_name = 'oauth2_credentials'" ],
+    [ 1, [] ]
+  ]
+]
+

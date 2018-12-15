@@ -1,0 +1,55 @@
+[
+  [ "oauth2_authorization_codes has a ttl field",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'ttl' and table_name = 'oauth2_authorization_codes'" ],
+    [ 1, [ { "data_type": "timestamp with time zone" } ] ]
+  ],
+
+  [ "oauth2_tokens has a ttl field",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'ttl' and table_name = 'oauth2_tokens'" ],
+    [ 1, [ { "data_type": "timestamp with time zone" } ] ]
+  ],
+
+  [ "oauth2_authorization_codes created_at has a time zone now",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'created_at' and table_name = 'oauth2_authorization_codes'" ],
+    [ 1, [ { "data_type": "timestamp with time zone" } ] ]
+  ],
+
+  [ "oauth2_tokens created_at has a time zone now",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'created_at' and table_name = 'oauth2_tokens'" ],
+    [ 1, [ { "data_type": "timestamp with time zone" } ] ]
+  ],
+
+  [ "oauth2_credentials created_at has a time zone now",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'created_at' and table_name = 'oauth2_credentials'" ],
+    [ 1, [ { "data_type": "timestamp with time zone" } ] ]
+  ],
+
+  [ "oauth2_credentials index by consumer is no longer oauth2_credentials_consumer_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'oauth2_credentials' and indexname = 'oauth2_credentials_consumer_idx'" ],
+    [ 1, [] ]
+  ],
+  [ "oauth2_credentials index by consumer is now oauth2_credentials_consumer_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'oauth2_credentials' and indexname = 'oauth2_credentials_consumer_id_idx'" ],
+    [ 1, [ { "tablename": "oauth2_credentials", "indexname": "oauth2_credentials_consumer_id_idx" } ] ]
+  ],
+
+  [ "oauth2_authorization_codes index by user_id is no longer oauth2_authorization_userid_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'oauth2_authorization_codes' and indexname = 'oauth2_authorization_userid_idx'" ],
+    [ 1, [] ]
+  ],
+  [ "oauth2_authorization_codes index by name is now oauth2_authorization_codes_authenticated_user_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'oauth2_authorization_codes' and indexname = 'oauth2_authorization_codes_authenticated_userid_idx'" ],
+    [ 1, [ { "tablename": "oauth2_authorization_codes", "indexname": "oauth2_authorization_codes_authenticated_userid_idx" } ] ]
+  ],
+
+  [ "oauth2_tokens index by authenticated userid is no longer oauth2_token_userid_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'oauth2_tokens' and indexname = 'oauth2_token_userid_idx'" ],
+    [ 1, [] ]
+  ],
+  [ "oauth2_tokens index by authenticated userid is now oauth2_tokens_authenticated_userid_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'oauth2_tokens' and indexname = 'oauth2_tokens_authenticated_userid_idx'" ],
+    [ 1, [ { "tablename": "oauth2_tokens", "indexname": "oauth2_tokens_authenticated_userid_idx" } ] ]
+  ]
+
+]
+
