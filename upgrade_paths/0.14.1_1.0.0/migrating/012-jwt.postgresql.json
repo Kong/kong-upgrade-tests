@@ -1,0 +1,29 @@
+[
+  [ "jwt_secrets created_at has a time zone now",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'created_at' and table_name = 'jwt_secrets'" ],
+    [ 1, [ { "data_type": "timestamp with time zone" } ] ]
+  ],
+
+  [ "jwt_secrets index jwt_secrets_consumer_id no longer exists",
+    [ "psql", "select * from pg_indexes where tablename = 'jwt_secrets' and indexname = 'jwt_secrets_consumer_id'" ],
+    [ 1, [] ]
+  ],
+  [ "jwt_secrets index for consumer is now called jwt_secrets_consumer_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'jwt_secrets' and indexname = 'jwt_secrets_consumer_id_idx'" ],
+    [ 1, [] ]
+  ],
+
+  [ "jwt_secrets index jwt_secrets_secret no longer exists",
+    [ "psql", "select * from pg_indexes where tablename = 'jwt_secrets' and indexname = 'jwt_secrets_secret'" ],
+    [ 1, [] ]
+  ],
+  [ "jwt_secrets index for secret is now called jwt_secrets_secret_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'jwt_secrets' and indexname = 'jwt_secrets_secret_idx'" ],
+    [ 1, [] ]
+  ],
+
+  [ "jwt_secrets index jwt_secrets_key no longer exists",
+    [ "psql", "select * from pg_indexes where tablename = 'jwt_secrets' and indexname = 'jwt_secrets_key'" ],
+    [ 1, [] ]
+  ]
+]

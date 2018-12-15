@@ -1,0 +1,7 @@
+[
+  [ "delete key_auth_api",
+    [ "admin", "DELETE", "/apis/#{key_auth_api.id}", {
+    } ],
+    [ 204, {} ]
+  ]
+]

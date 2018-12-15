@@ -1,0 +1,92 @@
+[
+  [ "targets now *do* have an index called targets_upstream_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'targets' and indexname = 'targets_upstream_id_idx'" ],
+    [ 1, [ { "tablename": "targets", "indexname": "targets_upstream_id_idx" } ] ]
+  ],
+
+
+  [ "upstreams index on name upstreams_name_idx was dropped",
+    [ "psql", "select * from pg_indexes where tablename = 'upstreams' and indexname = 'upstreams_name_idx'" ],
+    [ 1, [] ]
+  ],
+  [ "upstreams still have an UNIQUE index on name called upstreams_name_key",
+    [ "psql", "select * from pg_indexes where tablename = 'upstreams' and indexname = 'upstreams_name_key'" ],
+    [ 1, [ { "tablename": "upstreams", "indexname": "upstreams_name_key" } ] ]
+  ],
+
+
+  [ "consumers index on username is not consumers_username_key any more",
+    [ "psql", "select * from pg_indexes where tablename = 'consumers' and indexname = 'consumers_username_key'" ],
+    [ 1, [] ]
+  ],
+  [ "consumers index on username is now called consumers_username_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'consumers' and indexname = 'consumers_username_idx'" ],
+    [ 1, [ { "tablename": "consumers", "indexname": "consumers_username_idx" } ] ]
+  ],
+
+
+  [ "consumers index on custom_id is not custom_id_idx any more",
+    [ "psql", "select * from pg_indexes where tablename = 'consumers' and indexname = 'custom_id_idx'" ],
+    [ 1, [] ]
+  ],
+  [ "consumers still have a UNIQUE index on custom_id called consumers_custom_id_key",
+    [ "psql", "select * from pg_indexes where tablename = 'consumers' and indexname = 'consumers_custom_id_key'" ],
+    [ 1, [ { "tablename": "consumers", "indexname": "consumers_custom_id_key" } ] ]
+  ],
+
+
+  [ "certificates id index ssl_certificates_pkey no longer exists",
+    [ "psql", "select * from pg_indexes where tablename = 'certificates' and indexname = 'ssl_certificates_pkey'" ],
+    [ 1, [] ]
+  ],
+  [ "certificates id index was renamed to certificates_pkey",
+    [ "psql", "select * from pg_indexes where tablename = 'certificates' and indexname = 'certificates_pkey'" ],
+    [ 1, [ { "tablename": "certificates", "indexname": "certificates_pkey" } ] ]
+  ],
+
+
+  [ "cluster events at index idx_cluster_events_at no longer exists",
+    [ "psql", "select * from pg_indexes where tablename = 'cluster_events' and indexname = 'idx_cluster_events_at'" ],
+    [ 1, [] ]
+  ],
+  [ "cluster events at index was renamed to cluster_events_at_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'cluster_events' and indexname = 'cluster_events_at_idx'" ],
+    [ 1, [ { "tablename": "cluster_events", "indexname": "cluster_events_at_idx" } ] ]
+  ],
+
+
+  [ "cluster events channel index is no longer idx_cluster_events_channel",
+    [ "psql", "select * from pg_indexes where tablename = 'cluster_events' and indexname = 'idx_cluster_events_channel'" ],
+    [ 1, [] ]
+  ],
+  [ "cluster events channel index was renamed to cluster_events_channel_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'cluster_events' and indexname = 'cluster_events_channel_idx'" ],
+    [ 1, [ { "tablename": "cluster_events", "indexname": "cluster_events_channel_idx" } ] ]
+  ],
+
+
+  [ "routes index on service_id is no longer routes_fkey_service",
+    [ "psql", "select * from pg_indexes where tablename = 'routes' and indexname = 'routes_fkey_service'" ],
+    [ 1, [] ]
+  ],
+  [ "routes index on service_id was renamed to routes_service_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'routes' and indexname = 'routes_service_id_idx'" ],
+    [ 1, [ { "tablename": "routes", "indexname": "routes_service_id_idx" } ] ]
+  ],
+
+
+  [ "snis are now indexed on certificate_id, and their cert is named snis_certificate_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'snis' and indexname = 'snis_certificate_id_idx'" ],
+    [ 1, [ { "tablename": "snis", "indexname": "snis_certificate_id_idx" } ] ]
+  ],
+
+
+  [ "snis index by name is no longer snis_name_unique",
+    [ "psql", "select * from pg_indexes where tablename = 'snis' and indexname = 'snis_name_unique'" ],
+    [ 1, [] ]
+  ],
+  [ "snis index by name is now snis_name_key",
+    [ "psql", "select * from pg_indexes where tablename = 'snis' and indexname = 'snis_name_key'" ],
+    [ 1, [ { "tablename": "snis", "indexname": "snis_name_key" } ] ]
+  ]
+]
