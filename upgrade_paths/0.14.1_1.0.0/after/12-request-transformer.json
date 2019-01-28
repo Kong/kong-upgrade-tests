@@ -1,4 +1,5 @@
 [
+
   [ "request_transformer_service_2",
     [ "admin_2", "POST", "/services", {
       "name": "request_transformer_service_2",
@@ -38,7 +39,7 @@
     } ]
   ],
 
-  [ "check that request-transformer-2 adds the header",
+  [ "check that request-transformer adds the header",
     [ "proxy_2", "GET", "/", {}, { "Host": "request-transformer-route-2.test" } ],
     [ 200, { "headers": { "Authorization": "Basic 5678" } } ]
   ],
