@@ -25,7 +25,7 @@
   [ "request_transformer_plugin-2",
     [ "admin_2", "POST", "/plugins", {
       "name": "request-transformer",
-      "service": { "id": "#{request_transformer_service.id}" },
+      "service": { "id": "#{request_transformer_service_2.id}" },
       "config": {
         "add": { "headers": [ "Authorization:Basic 5678" ] }
       }
@@ -39,7 +39,7 @@
     } ]
   ],
 
-  [ "check that request-transformer adds the header",
+  [ "check that request-transformer-2 adds the header",
     [ "proxy_2", "GET", "/", {}, { "Host": "request-transformer-route-2.test" } ],
     [ 200, { "headers": { "Authorization": "Basic 5678" } } ]
   ],
