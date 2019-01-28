@@ -1,0 +1,6 @@
+[
+  [ "check that request-transformer keeps adding the header",
+    [ "proxy_2", "GET", "/", {}, { "Host": "request-transformer-route.test" } ],
+    [ 200, { "headers": { "Authorization": "Basic 1234" } } ]
+  ]
+]

@@ -1,0 +1,46 @@
+[
+  [ "request_transformer_service",
+    [ "admin", "POST", "/services", {
+      "name": "request_transformer_service",
+      "url": "http://httpbin.org/anything"
+    } ],
+    [ 201, {
+      "name": "request_transformer_service",
+      "host": "httpbin.org",
+      "path": "/anything",
+      "protocol": "http"
+    } ]
+  ],
+
+  [ "request_transformer_route",
+    [ "admin", "POST", "/services/request_transformer_service/routes", {
+      "hosts": [ "request-transformer-route.test" ]
+    } ],
+    [ 201, {
+      "hosts": [ "request-transformer-route.test" ]
+    } ]
+  ],
+
+  [ "request_transformer_plugin",
+    [ "admin", "POST", "/plugins", {
+      "name": "request-transformer",
+      "service_id": "#{request_transformer_service.id}",
+      "config": {
+        "add": { "headers": [ "Authorization:Basic 1234" ] }
+      }
+    } ],
+    [ 201, {
+      "name": "request-transformer",
+      "service_id": "#{request_transformer_service.id}",
+      "config": {
+        "add": { "headers": [ "Authorization:Basic 1234" ] }
+      }
+    } ]
+  ],
+
+  [ "check that request-transformer adds the header",
+    [ "proxy", "GET", "/", {}, { "Host": "request-transformer-route.test" } ],
+    [ 200, { "headers": { "Authorization": "Basic 1234" } } ]
+  ]
+
+]
