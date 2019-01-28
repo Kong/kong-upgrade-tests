@@ -25,14 +25,14 @@
   [ "request_transformer_plugin-2",
     [ "admin_2", "POST", "/plugins", {
       "name": "request-transformer",
-      "service_id": "#{request_transformer_service.id}",
+      "service": { "id": "#{request_transformer_service.id}" },
       "config": {
         "add": { "headers": [ "Authorization:Basic 5678" ] }
       }
     } ],
     [ 201, {
       "name": "request-transformer",
-      "service_id": "#{request_transformer_service_2.id}",
+      "service": { "id": "#{request_transformer_service_2.id}" },
       "config": {
         "add": { "headers": [ "Authorization:Basic 5678" ] }
       }
