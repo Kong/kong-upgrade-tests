@@ -4,12 +4,18 @@
 # kong test instance configuration
 DATABASE=postgres
 prefix=servroot
+OPENSSL_INSTALL_1=
+OPENRESTY_INSTALL_1=
+LUAROCKS_INSTALL_1=
 export ADMIN_LISTEN=127.0.0.1:18001
 export PROXY_LISTEN=127.0.0.1:18000
 export ADMIN_LISTEN_SSL=127.0.0.1:18444
 export PROXY_LISTEN_SSL=127.0.0.1:18443
 
 prefix_2=servroot2
+OPENSSL_INSTALL_2=
+OPENRESTY_INSTALL_2=
+LUAROCKS_INSTALL_2=
 export ADMIN_LISTEN_2=127.0.0.1:19001
 export PROXY_LISTEN_2=127.0.0.1:19000
 export ADMIN_LISTEN_SSL_2=127.0.0.1:19444
@@ -28,6 +34,8 @@ root=`pwd`
 cache_dir=$root/cache
 tmp_dir=$root/tmp
 log_file=$root/run.log
+cores=`nproc`
+orig_path=$PATH
 
 # arguments
 base_version=
@@ -36,6 +44,7 @@ base_repo=kong
 target_repo=kong
 test_suite_dir=
 ssh_key=$HOME/.ssh/id_rsa
+patches_branch=master
 
 # control variables
 keep=0
@@ -43,6 +52,8 @@ base_repo_dir=
 target_repo_dir=
 ret1=
 ret2=
+ret3=
+ret4=
 force_migrating=0
 
 export KONG_NGINX_WORKER_PROCESSES=1
@@ -57,14 +68,6 @@ exec 6<&2
 exec 1>$log_file 2>&1
 
 main() {
-    if ! [ -x "$(command -v luarocks)" ]; then
-        show_error "'luarocks' is not available in \$PATH"
-    fi
-
-    if ! [ -x "$(command -v resty)" ]; then
-        show_error "'resty' is not available in \$PATH"
-    fi
-
     while [[ $# -gt 0 ]]; do
         key="$1"
         case $key in
@@ -82,6 +85,10 @@ main() {
                 ;;
             -t|--target)
                 target_version=$2
+                shift
+                ;;
+            -p|--patches)
+                patches_branch=$2
                 shift
                 ;;
             -m|--force-migrating)
@@ -179,8 +186,26 @@ main() {
     prepare_repo $base_repo $base_version
     base_repo_dir=$ret1
 
+    semverLT $base_version 0.15.0 5>/dev/null
+    nopatch=$((1 - $?))
+
+    msg "installing base components for Kong $base_version"
+    install_base_components $ret2 $ret3 $ret4 $nopatch
+    OPENSSL_INSTALL_1=$ret1
+    OPENRESTY_INSTALL_1=$ret2
+    LUAROCKS_INSTALL_1=$ret3
+
     prepare_repo $target_repo $target_version
     target_repo_dir=$ret1
+
+    semverLT $target_version 0.15.0 5>/dev/null
+    nopatch=$((1 - $?))
+
+    msg "installing base components for Kong $target_version"
+    install_base_components $ret2 $ret3 $ret4 $nopatch
+    OPENSSL_INSTALL_2=$ret1
+    OPENRESTY_INSTALL_2=$ret2
+    LUAROCKS_INSTALL_2=$ret3
 
     has_new_migrations $base_version
     local base_has_new_migrations=$ret1
@@ -217,13 +242,13 @@ main() {
         export KONG_CASSANDRA_KEYSPACE=$CASSANDRA_KEYSPACE
     fi
 
+
+    using_kong_node 1
+
     # Install Kong Base version
     install_kong $base_version $base_repo_dir
 
     pushd $base_repo_dir
-
-        using_kong_node 1
-
         msg "Running $base_version migrations"
 
         if [[ $base_has_new_migrations == 0 ]]; then
@@ -254,6 +279,8 @@ main() {
     do
         run_json_commands "before/$(basename "$file")" "$file"
     done
+
+    using_kong_node 2
 
     # Install Kong target version
     install_kong $target_version $target_repo_dir
@@ -355,6 +382,131 @@ has_new_migrations() {
   ret1=$?
 }
 
+install_base_components() {
+  OPENRESTY=$1
+  OPENSSL=$2
+  LUAROCKS=$3
+  NOPATCH=$4
+  PREFIX=$5
+
+  if [ "$NOPATCH" -eq "0" ]
+  then
+    msg "installing base components: OpenResty=$OPENRESTY, OpenSSL=$OPENSSL, LuaRocks=$LUAROCKS using $cores cores"
+  else
+    msg "installing base components: OpenResty (without patches)=$OPENRESTY, OpenSSL=$OPENSSL, LuaRocks=$LUAROCKS using $cores cores"
+  fi
+
+  OPENSSL_DOWNLOAD=$cache_dir/openssl-$OPENSSL
+  OPENRESTY_PATCHES_DOWNLOAD=$cache_dir/openresty-patches
+  OPENRESTY_DOWNLOAD=$cache_dir/openresty-$OPENRESTY
+  LUAROCKS_DOWNLOAD=$cache_dir/luarocks-$LUAROCKS
+
+  mkdir -p $OPENSSL_DOWNLOAD $OPENRESTY_DOWNLOAD $OPENRESTY_PATCHES_DOWNLOAD $LUAROCKS_DOWNLOAD
+
+  if [ ! "$(ls -A $OPENSSL_DOWNLOAD)" ]; then
+    pushd $cache_dir
+      curl -s -S -L http://www.openssl.org/source/openssl-$OPENSSL.tar.gz | tar xz
+    popd
+  fi
+
+  # OpenResty source is not cacheable, due to the fact that we may apply patches to them later
+  rm -rf $OPENRESTY_DOWNLOAD
+  pushd $cache_dir
+    curl -s -S -L https://openresty.org/download/openresty-$OPENRESTY.tar.gz | tar xz
+  popd
+
+  if [ ! "$(ls -A $OPENRESTY_PATCHES_DOWNLOAD)" ]; then
+    git clone https://github.com/kong/openresty-patches.git $OPENRESTY_PATCHES_DOWNLOAD
+  fi
+
+  pushd $OPENRESTY_PATCHES_DOWNLOAD
+    git checkout -q $patches_branch || show_error "failed to checkout $patches_branch of openresty-patches, exit code: $?"
+  popd
+
+  if [ ! "$(ls -A $LUAROCKS_DOWNLOAD)" ]; then
+    git clone -q https://github.com/keplerproject/luarocks.git $LUAROCKS_DOWNLOAD
+  fi
+
+  OPENSSL_INSTALL=$tmp_dir/openssl-$OPENSSL
+
+  if [ "$NOPATCH" -eq "0" ]
+  then
+    OPENRESTY_INSTALL=$tmp_dir/openresty-$OPENRESTY-patch-$OPENSSL-$LUAROCKS
+  else
+    OPENRESTY_INSTALL=$tmp_dir/openresty-$OPENRESTY-nopatch-$OPENSSL-$LUAROCKS
+  fi
+
+  LUAROCKS_INSTALL=$OPENRESTY_INSTALL/luajit
+
+  mkdir -p $OPENSSL_INSTALL $OPENRESTY_INSTALL
+
+  if [ ! "$(ls -A $OPENSSL_INSTALL)" ]; then
+    pushd $OPENSSL_DOWNLOAD
+      msg "installing OpenSSL $OPENSSL..."
+      ./config shared --prefix=$OPENSSL_INSTALL || show_error "failed to config OpenSSL"
+      make -j1 || show_error "failed to compile OpenSSL" # OpenSSL can not be reliably compiled with parallel builds
+      make install_sw || show_error "failed to install OpenSSL"
+    popd
+  fi
+
+  if [ ! "$(ls -A $OPENRESTY_INSTALL)" ]; then
+    OPENRESTY_OPTS=(
+      "--prefix=$OPENRESTY_INSTALL"
+      "--with-cc-opt='-I$OPENSSL_INSTALL/include'"
+      "--with-ld-opt='-L$OPENSSL_INSTALL/lib -Wl,-rpath,$OPENSSL_INSTALL/lib'"
+      "--with-pcre-jit"
+      "--with-http_ssl_module"
+      "--with-http_realip_module"
+      "--with-http_stub_status_module"
+      "--with-http_v2_module"
+      "--with-stream_ssl_preread_module"
+      "-j$cores"
+    )
+
+    pushd $OPENRESTY_DOWNLOAD
+      if [ -d $OPENRESTY_PATCHES_DOWNLOAD/patches/$OPENRESTY ]; then
+        msg "applying patches to OpenResty..."
+        pushd bundle
+          if [ "$NOPATCH" -eq "0" ]; then
+            for patch_file in $(ls -1 $OPENRESTY_PATCHES_DOWNLOAD/patches/$OPENRESTY/*.patch); do
+              echo "applying OpenResty patch $patch_file"
+              patch -p1 < $patch_file || show_error "failed to apply OpenResty patches"
+            done
+          else
+            echo "applying OpenResty patch $OPENRESTY_PATCHES_DOWNLOAD/patches/$OPENRESTY/nginx-1.13.6_06-remove-glibc-crypt_r-bug-workaround.patch"
+            patch -p1 < $OPENRESTY_PATCHES_DOWNLOAD/patches/$OPENRESTY/nginx-1.13.6_06-remove-glibc-crypt_r-bug-workaround.patch || show_error "failed to apply OpenResty patches"
+          fi
+        popd
+      fi
+
+      msg "installing OpenResty $OPENRESTY..."
+      eval ./configure ${OPENRESTY_OPTS[*]} || show_error "failed to configure OpenResty"
+
+      make -j$cores > build.log || show_error "failed to compile OpenResty"
+      make install || show_error "failed to install OpenResty"
+
+      pushd $LUAROCKS_DOWNLOAD
+        msg "Installing LuaRocks $LUAROCKS..."
+        git checkout -q v$LUAROCKS
+        ./configure \
+          --prefix=$LUAROCKS_INSTALL \
+          --lua-suffix=jit \
+          --with-lua=$OPENRESTY_INSTALL/luajit \
+          --with-lua-include=$OPENRESTY_INSTALL/luajit/include/luajit-2.1 \
+          || show_error "failed to configure LuaRocks"
+        make -j$cores build || show_error "failed to build LuaRocks"
+        make install || show_error "failed to install LuaRocks"
+      popd
+    popd
+  fi
+
+  ret1=$OPENSSL_INSTALL
+  ret2=$OPENRESTY_INSTALL
+  ret3=$LUAROCKS_INSTALL
+
+  msg_green "Done"
+}
+
 clone_or_pull_repo() {
     repo=$1
 
@@ -380,16 +532,25 @@ prepare_repo() {
     ret1=$tmp_dir/$tmp_repo_name
 
     if [[ "$keep" = 1 ]]; then
-        return
+      pushd $tmp_dir/$tmp_repo_name
+        ret2=`grep OPENRESTY_BASE= .travis.yml | cut -d = -f 2`
+        ret3=`grep OPENSSL= .travis.yml | cut -d = -f 2`
+        ret4=`grep LUAROCKS= .travis.yml | cut -d = -f 2`
+      popd
+
+      return
     fi
 
     pushd $tmp_dir
-        cp -R $cache_dir/$repo $tmp_repo_name \
-            || show_error "cp failed with: $?"
-        pushd $tmp_repo_name
-           git checkout $version \
-               || { co_exit=$?; rm -rf $tmp_repo_name; show_error "git checkout to '$version' failed with: $co_exit"; }
-        popd
+      cp -R $cache_dir/$repo $tmp_repo_name \
+        || show_error "cp failed with: $?"
+      pushd $tmp_repo_name
+        git checkout $version \
+          || { co_exit=$?; rm -rf $tmp_repo_name; show_error "git checkout to '$version' failed with: $co_exit"; }
+        ret2=`grep OPENRESTY_BASE= .travis.yml | cut -d = -f 2`
+        ret3=`grep OPENSSL= .travis.yml | cut -d = -f 2`
+        ret4=`grep LUAROCKS= .travis.yml | cut -d = -f 2`
+      popd
     popd
 
 }
@@ -400,6 +561,8 @@ set_env_vars() {
     proxy=$3
     admin_ssl=$4
     proxy_ssl=$5
+    path=$6
+    openssl_dir=$7
 
     export KONG_PREFIX="$pref"
     if grep -q "proxy_listen_ssl" kong.conf.default; then
@@ -411,14 +574,20 @@ set_env_vars() {
         export KONG_ADMIN_LISTEN="$admin, $admin_ssl ssl"
         export KONG_PROXY_LISTEN="$proxy, $proxy_ssl ssl"
     fi
+    export PATH=$path
+    export OPENSSL_DIR=$openssl_dir
 }
 
 using_kong_node() {
   if [[ "$1" = "1" ]]
   then
-    set_env_vars $prefix $ADMIN_LISTEN $PROXY_LISTEN $ADMIN_LISTEN_SSL $PROXY_LISTEN_SSL
+    set_env_vars $prefix $ADMIN_LISTEN $PROXY_LISTEN $ADMIN_LISTEN_SSL $PROXY_LISTEN_SSL \
+      "$OPENSSL_INSTALL_1/bin:$OPENRESTY_INSTALL_1/bin:$OPENRESTY_INSTALL_1/nginx/sbin:$LUAROCKS_INSTALL_1/bin:$orig_path" \
+      $OPENSSL_INSTALL_1
   else
-    set_env_vars $prefix_2 $ADMIN_LISTEN_2 $PROXY_LISTEN_2 $ADMIN_LISTEN_SSL_2 $PROXY_LISTEN_SSL_2
+    set_env_vars $prefix_2 $ADMIN_LISTEN_2 $PROXY_LISTEN_2 $ADMIN_LISTEN_SSL_2 $PROXY_LISTEN_SSL_2 \
+      "$OPENSSL_INSTALL_2/bin:$OPENRESTY_INSTALL_2/bin:$OPENRESTY_INSTALL_2/nginx/sbin:$LUAROCKS_INSTALL_2/bin:$orig_path" \
+      $OPENSSL_INSTALL_2
   fi
 }
 
@@ -490,6 +659,7 @@ show_help() {
     echo
     echo "Options:"
     echo "  -d,--database        database (default: postgres)"
+    echo "  -p,--patches         Kong/openresty-patches branch to use (default: master)"
     echo "  -f,--force-git-clone cleanup cache and force git clone"
     echo "  -m,--force-migrating run the migrating specs (needed on non-semantic-versioned tags)"
     echo "  --ssh-key            ssh key to use when cloning repositories"
