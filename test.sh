@@ -649,6 +649,8 @@ show_help() {
     echo "  -p,--patches         Kong/openresty-patches branch to use (default: master)"
     echo "  -f,--force-git-clone cleanup cache and force git clone"
     echo "  -m,--force-migrating run the migrating specs (needed on non-semantic-versioned tags)"
+    echo "  -k,--keep            do not compile and clone repositories from scratch"
+    echo "                       (useful when running multiple tests between same base and target version)"
     echo "  --ssh-key            ssh key to use when cloning repositories"
     echo
 }
