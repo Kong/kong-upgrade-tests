@@ -219,7 +219,7 @@ main() {
         msg "Dropping PostgreSQL database '$POSTGRES_DATABASE'"
         dropdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE \
              || show_warning "dropdb failed with: $?"
-        createdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT $POSTGRES_DATABASE \
+        createdb -U postgres -h $POSTGRES_HOST -p $POSTGRES_PORT -O kong $POSTGRES_DATABASE \
             || show_error "createdb failed with: $?"
 
         export KONG_DATABASE=$DATABASE
