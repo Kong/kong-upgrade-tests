@@ -1,0 +1,6 @@
+[
+  [ "plugins.protocols field is added",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'protocols' and table_name = 'plugins'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ]
+]
