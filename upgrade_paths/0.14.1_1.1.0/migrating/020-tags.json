@@ -1,5 +1,5 @@
 [
-  [ "test_service_after",
+  [ "test_service_migrating",
     [ "admin_2", "PATCH", "/services/#{test_service.id}", {
       "tags": [ "tag1", "tag2" ]
     } ],
@@ -11,7 +11,7 @@
       "tags": [ "tag1", "tag2" ]
     } ]
   ],
-  [ "test_route_after",
+  [ "test_route_migrating",
     [ "admin_2", "PATCH", "/routes/#{test_route.id}", {
       "tags": [ "tag1" ]
     } ],
@@ -19,7 +19,7 @@
       "tags": [ "tag1" ]
     } ]
   ],
-  [ "test_service check after",
+  [ "test_service check migrating",
     [ "admin_2", "GET", "/services/#{test_service.id}" ],
     [ 200, {
       "name": "test_service",
@@ -29,7 +29,7 @@
       "tags": [ "tag1", "tag2" ]
     } ]
   ],
-  [ "filter by tag after migraqtion",
+  [ "filter by tag during migraqtion",
     [ "admin_2", "GET", "/services?tags=tag2" ],
     [ 200, {
       "data": [ {
@@ -41,7 +41,7 @@
       } ]
     } ]
   ],
-  [ "new /tags endpoint shows tagged services",
+  [ "new /tags endpoint shows tagged services during migration",
     [ "admin_2", "GET", "/tags/tag2" ],
     [ 200, {
         "data": [ {
@@ -51,7 +51,7 @@
       ]
     } ]
   ],
-  [ "test proxy works after migration",
+  [ "test proxy works during migration",
     [ "proxy_2", "GET", "/", "", { "Host": "test_service.example.com" } ],
     [ 200,
       null,

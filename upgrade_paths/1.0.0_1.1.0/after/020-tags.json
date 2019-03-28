@@ -59,23 +59,5 @@
       null,
       { "%Via": "kong/1\\.1\\.0(?:rc\\d)?" }
     ]
-  ],
-  [ "test_service check with old node after migration",
-    [ "admin", "GET", "/services" ],
-    [ 200, {
-      "data": [ {
-        "name": "test_service",
-        "host": "httpbin.org",
-        "path": "/anything",
-        "protocol": "https"
-      } ]
-    } ]
-  ],
-  [ "test proxy works with old node after migration",
-    [ "proxy", "GET", "/", "", { "Host": "test_service.example.com" } ],
-    [ 200,
-      null,
-      { "Via": "kong/1.0.0" }
-    ]
   ]
 ]
