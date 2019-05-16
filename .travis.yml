@@ -27,9 +27,6 @@ env:
 before_install:
   - mkdir -p ~/.local/bin
   - ln -s kong-gojira/gojira.sh ~/.local/bin/gojira
-  - ls -la ~/.local/bin
-  - echo $PATH
-  - $HOME/kong-gojira/gojira.sh roar
   - gojira roar
 
 install:
