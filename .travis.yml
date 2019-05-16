@@ -20,15 +20,13 @@ env:
     - GOJIRA_VERSION=v0.2.0
     - TEST_REPO=kong
   matrix:
-    - TEST_FROM=0.14.1
-      TEST_TO=1.1.0
     - TEST_FROM=1.0.0
       TEST_TO=1.1.0
+      DATABASE=postgres
 before_install:
   - mkdir -p ~/.local/bin
   - ln -s $TRAVIS_BUILD_DIR/kong-gojira/gojira.sh ~/.local/bin/gojira
   - gojira roar
 
 script:
-  - bash test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d postgres upgrade_paths/$TEST_FROM-$TEST_TO/
-  - bash test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d cassandra upgrade_paths/$TEST_FROM-$TEST_TO/
+  - ./test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d $DATABASE "$TRAVIS_BUILD_DIR/upgrade_paths/${TEST_FROM}_${TEST_TO}/"
