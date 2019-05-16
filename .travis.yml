@@ -29,20 +29,6 @@ before_install:
   - ln -s $TRAVIS_BUILD_DIR/kong-gojira/gojira.sh ~/.local/bin/gojira
   - gojira roar
 
-install:
-  - bash .ci/cache.sh load $TEST_REPO:$TEST_FROM $IMAGES_PATH
-  - bash .ci/cache.sh load $TEST_REPO:$TEST_TO $IMAGES_PATH
-
-before_cache:
-  - bash .ci/cache.sh save $TEST_REPO:$TEST_FROM $IMAGES_PATH
-  - bash .ci/cache.sh save $TEST_REPO:$TEST_TO $IMAGES_PATH
-
 script:
   - bash test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d postgres upgrade_paths/$TEST_FROM-$TEST_TO/
   - bash test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d cassandra upgrade_paths/$TEST_FROM-$TEST_TO/
-
-cache:
-  apt: true
-  pip: true
-  directories:
-    - $IMAGES_PATH
