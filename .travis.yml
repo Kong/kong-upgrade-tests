@@ -28,7 +28,7 @@ env:
       DATABASE=postgres
 before_install:
   - mkdir -p ~/.local/bin
-  - ln -s kong-gojira/gojira.sh ~/.local/bin/gojira
+  - ln -s $HOME/kong-gojira/gojira.sh ~/.local/bin/gojira
 
 install:
   - bash .ci/cache.sh load $TEST_REPO:$TEST_FROM $IMAGES_PATH
