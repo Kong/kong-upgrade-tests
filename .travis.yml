@@ -22,13 +22,15 @@ env:
   matrix:
     - TEST_FROM=0.14.1
       TEST_TO=1.1.0
-      DATABASE=postgres
     - TEST_FROM=1.0.0
       TEST_TO=1.1.0
-      DATABASE=postgres
 before_install:
   - mkdir -p ~/.local/bin
-  - ln -s $HOME/kong-gojira/gojira.sh ~/.local/bin/gojira
+  - ln -s kong-gojira/gojira.sh ~/.local/bin/gojira
+  - ls -la ~/.local/bin
+  - echo $PATH
+  - $HOME/kong-gojira/gojira.sh roar
+  - gojira roar
 
 install:
   - bash .ci/cache.sh load $TEST_REPO:$TEST_FROM $IMAGES_PATH
@@ -39,7 +41,8 @@ before_cache:
   - bash .ci/cache.sh save $TEST_REPO:$TEST_TO $IMAGES_PATH
 
 script:
-  - bash test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d $DATABASE upgrade_paths/$TEST_FROM-$TEST-TO/
+  - bash test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d postgres upgrade_paths/$TEST_FROM-$TEST-TO/
+  - bash test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d cassandra upgrade_paths/$TEST_FROM-$TEST-TO/
 
 cache:
   apt: true
