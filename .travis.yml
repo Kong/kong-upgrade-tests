@@ -26,7 +26,9 @@ env:
       TEST_TO=1.1.0
 before_install:
   - mkdir -p ~/.local/bin
-  - ln -s kong-gojira/gojira.sh ~/.local/bin/gojira
+  - ln -s ./kong-gojira/gojira.sh ~/.local/bin/gojira
+  - ls -la ~/.local/bin/gojira
+  - ls -la .
   - gojira roar
 
 install:
