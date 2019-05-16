@@ -27,11 +27,8 @@ env:
       TEST_TO=1.1.0
       DATABASE=postgres
 before_install:
-  - pushd $HOME
-  - git clone -b $GOJIRA_VERSION https://github.com/kong/kong-gojira.git
   - mkdir -p ~/.local/bin
-  - ln -s $HOME/kong-gojira/gojira.sh ~/.local/bin/gojira
-  - popd
+  - ln -s kong-gojira/gojira.sh ~/.local/bin/gojira
 
 install:
   - bash .ci/cache.sh load $TEST_REPO:$TEST_FROM $IMAGES_PATH
