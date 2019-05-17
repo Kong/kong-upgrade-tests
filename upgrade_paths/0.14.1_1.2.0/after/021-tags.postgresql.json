@@ -1,0 +1,114 @@
+[
+  [ "tags table is created after migrations to 1.1.0",
+    [ "psql", "select * from information_schema.tables where table_name = 'tags'" ],
+    [ 1, [ { "table_name": "tags" } ] ]
+  ],
+  [ "tags_entity_name_idx index is created after migrations to 1.1.0",
+    [ "psql", "select tablename from pg_indexes where indexname = 'tags_entity_name_idx'" ],
+    [ 1, [ { "tablename": "tags" } ] ]
+  ],
+  [ "tags_tags_idx index is created after migrations to 1.1.0",
+    [ "psql", "select tablename from pg_indexes where indexname = 'tags_tags_idx'" ],
+    [ 1, [ { "tablename": "tags" } ] ]
+  ],
+  [ "sync_tags function is created",
+    [ "psql", "select count(*) from pg_proc where proname = 'sync_tags'" ],
+    [ 1, [ { "count": 1 } ] ]
+  ],
+  [ "services.tags field is added",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'tags' and table_name = 'services'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "services_tags_idx index is created after migrations to 1.1.0",
+    [ "psql", "select tablename from pg_indexes where indexname = 'services_tags_idx'" ],
+    [ 1, [ { "tablename": "services" } ] ]
+  ],
+  [ "services_sync_tags_trigger trigger is (re)created (3 triggers: INSERT, DELETE, UPDATE)",
+    [ "psql", "select count(*) from information_schema.triggers where trigger_name = 'services_sync_tags_trigger'" ],
+    [ 1, [ { "count": 3 } ] ]
+  ],
+  [ "routes.tags field is added",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'tags' and table_name = 'routes'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "routes_tags_idx index is created after migrations to 1.1.0",
+    [ "psql", "select tablename from pg_indexes where indexname = 'routes_tags_idx'" ],
+    [ 1, [ { "tablename": "routes" } ] ]
+  ],
+  [ "routes_sync_tags_trigger trigger is (re)created (3 triggers: INSERT, DELETE, UPDATE)",
+    [ "psql", "select count(*) from information_schema.triggers where trigger_name = 'routes_sync_tags_trigger'" ],
+    [ 1, [ { "count": 3 } ] ]
+  ],
+  [ "certificates.tags field is added",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'tags' and table_name = 'certificates'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "certificates_tags_idx index is created after migrations to 1.1.0",
+    [ "psql", "select tablename from pg_indexes where indexname = 'certificates_tags_idx'" ],
+    [ 1, [ { "tablename": "certificates" } ] ]
+  ],
+  [ "certificates_sync_tags_trigger trigger is (re)created (3 triggers: INSERT, DELETE, UPDATE)",
+    [ "psql", "select count(*) from information_schema.triggers where trigger_name = 'certificates_sync_tags_trigger'" ],
+    [ 1, [ { "count": 3 } ] ]
+  ],
+  [ "snis.tags field is added",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'tags' and table_name = 'snis'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "snis_tags_idx index is created after migrations to 1.1.0",
+    [ "psql", "select tablename from pg_indexes where indexname = 'snis_tags_idx'" ],
+    [ 1, [ { "tablename": "snis" } ] ]
+  ],
+  [ "snis_sync_tags_trigger trigger is (re)created (3 triggers: INSERT, DELETE, UPDATE)",
+    [ "psql", "select count(*) from information_schema.triggers where trigger_name = 'snis_sync_tags_trigger'" ],
+    [ 1, [ { "count": 3 } ] ]
+  ],
+  [ "consumers.tags field is added",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'tags' and table_name = 'consumers'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "consumers_tags_idx index is created after migrations to 1.1.0",
+    [ "psql", "select tablename from pg_indexes where indexname = 'consumers_tags_idx'" ],
+    [ 1, [ { "tablename": "consumers" } ] ]
+  ],
+  [ "consumers_sync_tags_trigger trigger is (re)created (3 triggers: INSERT, DELETE, UPDATE)",
+    [ "psql", "select count(*) from information_schema.triggers where trigger_name = 'consumers_sync_tags_trigger'" ],
+    [ 1, [ { "count": 3 } ] ]
+  ],
+  [ "plugins.tags field is added",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'tags' and table_name = 'plugins'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "plugins_tags_idx index is created after migrations to 1.1.0",
+    [ "psql", "select tablename from pg_indexes where indexname = 'plugins_tags_idx'" ],
+    [ 1, [ { "tablename": "plugins" } ] ]
+  ],
+  [ "plugins_sync_tags_trigger trigger is (re)created (3 triggers: INSERT, DELETE, UPDATE)",
+    [ "psql", "select count(*) from information_schema.triggers where trigger_name = 'plugins_sync_tags_trigger'" ],
+    [ 1, [ { "count": 3 } ] ]
+  ],
+  [ "upstreams.tags field is added",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'tags' and table_name = 'upstreams'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "upstreams_tags_idx index is created after migrations to 1.1.0",
+    [ "psql", "select tablename from pg_indexes where indexname = 'upstreams_tags_idx'" ],
+    [ 1, [ { "tablename": "upstreams" } ] ]
+  ],
+  [ "upstreams_sync_tags_trigger trigger is (re)created (3 triggers: INSERT, DELETE, UPDATE)",
+    [ "psql", "select count(*) from information_schema.triggers where trigger_name = 'upstreams_sync_tags_trigger'" ],
+    [ 1, [ { "count": 3 } ] ]
+  ],
+  [ "targets.tags field is added",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'tags' and table_name = 'targets'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "targets_tags_idx index is created after migrations to 1.1.0",
+    [ "psql", "select tablename from pg_indexes where indexname = 'targets_tags_idx'" ],
+    [ 1, [ { "tablename": "targets" } ] ]
+  ],
+  [ "targets_sync_tags_trigger trigger is (re)created (3 triggers: INSERT, DELETE, UPDATE)",
+    [ "psql", "select count(*) from information_schema.triggers where trigger_name = 'targets_sync_tags_trigger'" ],
+    [ 1, [ { "count": 3 } ] ]
+  ]
+]

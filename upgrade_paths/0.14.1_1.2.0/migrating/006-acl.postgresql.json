@@ -1,0 +1,20 @@
+[
+  [ "acls has a cache_key field",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'cache_key' and table_name = 'acls'" ],
+    [ 1, [ { "data_type": "text" } ] ]
+  ],
+
+  [ "acls created_at has a time zone now",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'created_at' and table_name = 'acls'" ],
+    [ 1, [ { "data_type": "timestamp with time zone" } ] ]
+  ],
+
+  [ "acls index by consumer is no longer acls_consumer_id",
+    [ "psql", "select * from pg_indexes where tablename = 'acls' and indexname = 'acls_consumer_id'" ],
+    [ 1, [] ]
+  ],
+  [ "acls index by consumer is now acls_consumer_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'acls' and indexname = 'acls_consumer_id_idx'" ],
+    [ 1, [ { "tablename": "acls", "indexname": "acls_consumer_id_idx" } ] ]
+  ]
+]

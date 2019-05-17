@@ -1,0 +1,13 @@
+[
+  [ "oauth2_credentials still has redirect_uris",
+    [ "admin_2", "GET", "/consumers/#{oauth2_consumer.id}/oauth2/#{oauth2_credentials.id}" ],
+    [ 200, {
+      "name": "testapp",
+      "client_id": "clientid123",
+      "client_secret": "secret123",
+      "redirect_uris": [ "http://google.com/kong" ],
+      "consumer": { "id": "#{oauth2_consumer.id}" }
+    } ]
+  ]
+]
+
