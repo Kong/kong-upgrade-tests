@@ -1,0 +1,20 @@
+[
+  [ "keyauth_credentials created_at has a time zone now",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'created_at' and table_name = 'keyauth_credentials'" ],
+    [ 1, [ { "data_type": "timestamp with time zone" } ] ]
+  ],
+
+  [ "keyauth_credentials index by consumer is no longer keyauth_consumer_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'keyauth_credentials' and indexname = 'keyauth_consumer_idx'" ],
+    [ 1, [] ]
+  ],
+  [ "keyauth_credentials index by consumer is now keyauth_consumer_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'keyauth_credentials' and indexname = 'keyauth_credentials_consumer_id_idx'" ],
+    [ 1, [ { "tablename": "keyauth_credentials", "indexname": "keyauth_credentials_consumer_id_idx" } ] ]
+  ],
+
+  [ "keyauth_credentials index keyauth_key_idx no longer exists",
+    [ "psql", "select * from pg_indexes where tablename = 'keyauth_credentials' and indexname = 'keyauth_key_idx'" ],
+    [ 1, [] ]
+  ]
+]

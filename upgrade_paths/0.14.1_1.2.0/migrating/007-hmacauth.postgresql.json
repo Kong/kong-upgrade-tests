@@ -1,0 +1,20 @@
+[
+  [ "hmacauth_credentials created_at has a time zone now",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'created_at' and table_name = 'hmacauth_credentials'" ],
+    [ 1, [ { "data_type": "timestamp with time zone" } ] ]
+  ],
+
+  [ "hmacauth_credentials index by consumer is no longer hmacauth_credentials_consumer_id",
+    [ "psql", "select * from pg_indexes where tablename = 'hmacauth_credentials' and indexname = 'hmacauth_credentials_consumer_id'" ],
+    [ 1, [] ]
+  ],
+  [ "hmacauth_credentials index by consumer is now hmacauth_credentials_consumer_id_idx",
+    [ "psql", "select * from pg_indexes where tablename = 'hmacauth_credentials' and indexname = 'hmacauth_credentials_consumer_id_idx'" ],
+    [ 1, [ { "tablename": "hmacauth_credentials", "indexname": "hmacauth_credentials_consumer_id_idx" } ] ]
+  ],
+
+  [ "hmacauth_credentials index hmacauth_credentials_username no longer exists",
+    [ "psql", "select * from pg_indexes where tablename = 'hmacauth_credentials' and indexname = 'hmacauth_credentials_username'" ],
+    [ 1, [] ]
+  ]
+]
