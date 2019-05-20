@@ -20,15 +20,6 @@ env:
     - GOJIRA_VERSION=v0.2.0
     - TEST_REPO=kong
   matrix:
-    - TEST_FROM=0.11
-      TEST_TO=0.12
-      DATABASE=postgres
-    - TEST_FROM=0.12
-      TEST_TO=0.13
-      DATABASE=postgres
-    - TEST_FROM=0.13.1
-      TEST_TO=0.14.0
-      DATABASE=postgres
     - TEST_FROM=0.14.1
       TEST_TO=0.15.0
       DATABASE=postgres
@@ -41,6 +32,18 @@ env:
     - TEST_FROM=1.0.0
       TEST_TO=1.1.0
       DATABASE=postgres
+    - TEST_FROM=0.14.1
+      TEST_TO=0.15.0
+      DATABASE=cassandra
+    - TEST_FROM=0.14.1
+      TEST_TO=1.0.0
+      DATABASE=cassandra
+    - TEST_FROM=0.14.1
+      TEST_TO=1.1.0
+      DATABASE=cassandra
+    - TEST_FROM=1.0.0
+      TEST_TO=1.1.0
+      DATABASE=cassandra
 before_install:
   - mkdir -p ~/.local/bin
   - ln -s $TRAVIS_BUILD_DIR/kong-gojira/gojira.sh ~/.local/bin/gojira
