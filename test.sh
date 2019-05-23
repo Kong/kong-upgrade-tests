@@ -380,6 +380,7 @@ run_json_commands() {
         export CASSANDRA_PORT=9042
         export CASSANDRA_KEYSPACE=kong
         resty -e "package.path = package.path .. ';' .. '/mig_tool/?.lua'" \
+              --shdict="cassandra 1m"                                      \
               /mig_tool/util/json_commands_runner.lua /mig_tool/$l_filepath
 EOF
       ) >&5 || failed_test "$name json commands failed with: $?"

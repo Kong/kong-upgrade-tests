@@ -135,6 +135,25 @@ Tests are written in a JSON-based DSL, described below:
     } ]
   ],
 
+  [ "run a Cassandra CQL statement, get the results back",
+    [ "cql", "SELECT * FROM services" ],
+    [ 2, {
+      "type": "ROWS",
+      "1": {
+        "name": "service_1",
+        "id": "c75e22b7-1e77-41b1-9d8b-e1704d4d08ae",
+        ...
+      },
+      "2": {
+        "name": "service_2",
+        "id": "3ac42fe7-898e-4ed3-ac13-3dde3fa329d0",
+        ...
+      }
+    ]
+    } ]
+  ],
+
+
 ]
 ```
 
@@ -297,6 +316,32 @@ Example:
 * `<body>` is an array with zero or more results. If there are results, they will be encoded as
   json objects. Their format depends on the SQL statements introduced.
 
+
+### CQL
+
+```
+[ "cql", <cql> ]
+```
+
+* `<cql>` is a string with one cql statement.
+
+Example:
+
+```
+[ "cql", "SELECT * FROM routes" ]
+```
+
+### CQL responses
+
+```
+[ <number-of-rows>, <body> ]
+```
+
+* `<number-of-rows>` is the number of rows returned by the body. Literally `#body`.
+* `<body>` is a table returned by `lua-cassandra`. It usually has a `type` value. Expressions
+  returning rows (such as a Select will have a `ROWS` type). `body[1]`
+  would be the first row, `body[2]` the second one, and so on. Other types of requests
+  could have other formats. See the lua-cassandra docs for examples.
 
 ### String interpolation and regular expressions
 
