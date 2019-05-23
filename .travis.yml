@@ -1,0 +1,42 @@
+dist: xenial
+language: generic
+
+addons:
+  apt:
+    packages:
+      - net-tools
+      - libpcre3-dev
+      - build-essential
+      - realpath
+
+services:
+  - docker
+
+env:
+  global:
+    - DOCKER_COMPOSE_VERSION=1.23.2
+    - IMAGES_PATH=~/.gojira-images
+    - GOJIRA_VERSION=v0.2.0
+    - TEST_REPO=kong
+  matrix:
+    - TEST_FROM=0.14.1
+      TEST_TO=0.15.0
+      DATABASE=postgres
+    - TEST_FROM=0.14.1
+      TEST_TO=1.0.0
+      DATABASE=postgres
+    - TEST_FROM=0.14.1
+      TEST_TO=1.1.0
+      DATABASE=postgres
+    - TEST_FROM=1.0.0
+      TEST_TO=1.1.0
+      DATABASE=postgres
+    - TEST_FROM=0.14.1
+      TEST_TO=1.0.0
+      DATABASE=cassandra
+    - TEST_FROM=1.0.0
+      TEST_TO=1.1.0
+      DATABASE=cassandra
+
+script:
+  - ./test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d $DATABASE "$TRAVIS_BUILD_DIR/upgrade_paths/${TEST_FROM}_${TEST_TO}/"
