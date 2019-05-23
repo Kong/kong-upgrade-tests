@@ -5,7 +5,11 @@ local assert = require "luassert"
 local pretty = require "pl.pretty"
 local file = require "pl.file"
 local pgmoon = require "pgmoon"
+local cassandra = require "cassandra"
+local Cluster = require "resty.cassandra.cluster"
 
+-- cluster instance as an upvalue
+local cassandra_cluster
 
 local _M = {}
 
@@ -158,6 +162,16 @@ local function parse_command_psql_request(request, context)
 end
 
 
+local function parse_command_cql_request(request, context)
+  if #request < 2 then
+    exit("%s: a cql request must be an array of 2 elements", context)
+  end
+  return { type = "cql",
+           query = request[2],
+         }
+end
+
+
 local function parse_command_http_request(request, http_clients, context, responses)
   if #request < 3 then
     exit("%s: the request must be an array of at least 3 elements", context)
@@ -202,8 +216,8 @@ local function parse_command_request(request, http_clients, context, responses)
     return parse_command_psql_request(request, context)
   end
 
-  if request[1] == "psql" then
-    return parse_command_psql_request(request, context)
+  if request[1] == "cql" then
+    return parse_command_cql_request(request, context)
   end
 
   return parse_command_http_request(request, http_clients, context, responses)
@@ -328,6 +342,34 @@ local function run_psql_command(command)
 end
 
 
+local function get_cassandra_cluster()
+  if cassandra_cluster then
+    return cassandra_cluster
+  end
+
+  cassandra_cluster = assert(Cluster.new({
+    shm = "cassandra",
+    keyspace = os.getenv("CASSANDRA_KEYSPACE"),
+    contact_points = { os.getenv("CASSANDRA_CONTACT_POINT") },
+  }))
+
+  assert(cassandra_cluster:refresh())
+
+  return cassandra_cluster
+end
+
+
+local function run_cql_command(command)
+  local cluster = get_cassandra_cluster()
+  local res = assert(cluster:execute(command.query))
+
+  return {
+    status = #res,
+    body = res
+  }
+end
+
+
 
 local function execute_commands(commands, http_clients, file_path)
   local ok, len = is_sequence(commands)
@@ -352,6 +394,12 @@ local function execute_commands(commands, http_clients, file_path)
 
     elseif request.type == "psql" then
       response, err = run_psql_command(request)
+
+    elseif request.type == "cql" then
+      response, err = run_cql_command(request)
+
+    else
+      error(context .. ": unknown command type: " .. request.type)
     end
 
     print("========================================")
