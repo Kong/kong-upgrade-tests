@@ -385,6 +385,8 @@ local function execute_commands(commands, http_clients, file_path)
 
     namespace = string.sub(namespace, 1, -6)
     responses[namespace .. ":" .. name] = response.body
+
+    ngx.sleep(1)
   end
 
   pretty.dump(responses, "responses.dump")
