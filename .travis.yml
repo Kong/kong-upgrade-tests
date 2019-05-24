@@ -37,6 +37,30 @@ env:
     - TEST_FROM=1.0.0
       TEST_TO=1.1.0
       DATABASE=cassandra
+    - TEST_FROM=0.14.1
+      TEST_TO=next
+      UPATH_TO=1.2.0
+      DATABASE=postgres
+    - TEST_FROM=1.0.0
+      TEST_TO=next
+      UPATH_TO=1.2.0
+      DATABASE=postgres
+    - TEST_FROM=1.1.0
+      TEST_TO=next
+      UPATH_TO=1.2.0
+      DATABASE=postgres
+    - TEST_FROM=0.14.1
+      TEST_TO=next
+      UPATH_TO=1.2.0
+      DATABASE=cassandra
+    - TEST_FROM=1.0.0
+      TEST_TO=next
+      UPATH_TO=1.2.0
+      DATABASE=cassandra
+    - TEST_FROM=1.1.0
+      TEST_TO=next
+      UPATH_TO=1.2.0
+      DATABASE=cassandra
 
 script:
-  - ./test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d $DATABASE "$TRAVIS_BUILD_DIR/upgrade_paths/${TEST_FROM}_${TEST_TO}/"
+  - ./test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d $DATABASE "$TRAVIS_BUILD_DIR/upgrade_paths/${TEST_FROM}_${UPATH_TO-$TEST_TO}/"
