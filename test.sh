@@ -325,13 +325,13 @@ install_kong() {
     local image
 
     if ! [[ "$rebuild" = "1" ]]; then
-      image=$(./kong-gojira/gojira.sh snapshot? --repo $repo -t $version)
+      image=$(./kong-gojira/gojira.sh snapshot? -v --repo $repo -t $version)
 
       if [[ ! -z $image ]]; then
           msg "Found dev build image $image, not going to install"
           return
       fi
-      image=$(./kong-gojira/gojira.sh image? --repo $repo -t $version)
+      image=$(./kong-gojira/gojira.sh image? -v --repo $repo -t $version)
     fi
 
     msg "Installing Kong version $version"
@@ -342,10 +342,10 @@ install_kong() {
         image=$(./kong-gojira/gojira.sh image -v --repo $repo -t $version)
     fi
 
-    ./kong-gojira/gojira.sh up --repo $repo -t $version --alone --image $image
-    ./kong-gojira/gojira.sh run --repo $repo -t $version make dev || exit 1
-    ./kong-gojira/gojira.sh snapshot --repo $repo -t $version
-    ./kong-gojira/gojira.sh down --repo $repo -t $version
+    ./kong-gojira/gojira.sh up -v --repo $repo -t $version --alone --image $image
+    ./kong-gojira/gojira.sh run -v --repo $repo -t $version make dev || exit 1
+    ./kong-gojira/gojira.sh snapshot -v --repo $repo -t $version
+    ./kong-gojira/gojira.sh down -v --repo $repo -t $version
 }
 
 run_json_commands() {
