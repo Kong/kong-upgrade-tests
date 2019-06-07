@@ -55,7 +55,7 @@
     [ "proxy_2", "GET", "/", "", { "Host": "test_service.example.com" } ],
     [ 200,
       null,
-      { "%Via": "kong/1\\.1\\.2(?:rc\\d)?" }
+      { "%Via": "kong/1\\.2\\.\\d(?:rc\\d)?" }
     ]
   ]
 ]
