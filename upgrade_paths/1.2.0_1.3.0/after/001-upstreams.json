@@ -1,0 +1,71 @@
+[
+  [ "get upstream with all defaults",
+    [ "admin", "GET", "/upstreams/upstream-default", {} ],
+    [ 200, {
+      "name": "upstream-default",
+      "algorithm": "round-robin",
+      "hash_on": "none"
+    } ]
+  ],
+  [ "get upstream with all consistent hashing by ip",
+    [ "admin", "GET", "/upstreams/upstream-ip", {} ],
+    [ 200, {
+      "name": "upstream-ip",
+      "algorithm": "consistent-hashing",
+      "hash_on": "ip"
+    } ]
+  ],
+  [ "get upstream with explicit round robin (hash_on = none)",
+    [ "admin", "GET", "/upstreams/upstream-none", {} ],
+    [ 200, {
+      "name": "upstream-none",
+      "algorithm": "round-robin",
+      "hash_on": "none"
+    } ]
+  ],
+
+  [ "new upstream with all defaults",
+    [ "admin", "POST", "/upstreams", {
+      "name": "new-upstream-default"
+    } ],
+    [ 201, {
+      "name": "new-upstream-default",
+      "algorithm": "round-robin",
+      "hash_on": "none"
+    } ]
+  ],
+  [ "new upstream with all consistent hashing by ip",
+    [ "admin", "POST", "/upstreams", {
+      "name": "new-upstream-ip",
+      "hash_on": "ip"
+    } ],
+    [ 201, {
+      "name": "new-upstream-ip",
+      "algorithm": "consistent-hashing",
+      "hash_on": "ip"
+    } ]
+  ],
+  [ "new upstream with explicit round robin (hash_on = none)",
+    [ "admin", "POST", "/upstreams", {
+      "name": "new-upstream-none",
+      "hash_on": "none"
+    } ],
+    [ 201, {
+      "name": "new-upstream-none",
+      "algorithm": "round-robin",
+      "hash_on": "none"
+    } ]
+  ],
+
+  [ "new upstream with least connections",
+    [ "admin", "POST", "/upstreams", {
+      "name": "new-upstream-least",
+      "algorithm": "least-connections"
+    } ],
+    [ 201, {
+      "name": "new-upstream-default",
+      "algorithm": "least-connections",
+      "hash_on": null
+    } ]
+  ]
+]

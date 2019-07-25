@@ -1,0 +1,31 @@
+[
+  [ "upstream with all defaults",
+    [ "admin", "POST", "/upstreams", {
+      "name": "upstream-default"
+    } ],
+    [ 201, {
+      "name": "upstream-default",
+      "hash_on": "none"
+    } ]
+  ],
+  [ "upstream with all consistent hashing by ip",
+    [ "admin", "POST", "/upstreams", {
+      "name": "upstream-ip",
+      "hash_on": "ip"
+    } ],
+    [ 201, {
+      "name": "upstream-ip",
+      "hash_on": "ip"
+    } ]
+  ],
+  [ "upstream with explicit round robin (hash_on = none)",
+    [ "admin", "POST", "/upstreams", {
+      "name": "upstream-none",
+      "hash_on": "none"
+    } ],
+    [ 201, {
+      "name": "upstream-none",
+      "hash_on": "none"
+    } ]
+  ]
+]
