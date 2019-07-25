@@ -232,7 +232,12 @@ function image_name {
   local travis_yaml=$GOJIRA_KONG_PATH/.travis.yml
   LUAROCKS=${LUAROCKS:-$(yaml_find $travis_yaml LUAROCKS)}
   OPENSSL=${OPENSSL:-$(yaml_find $travis_yaml OPENSSL)}
-  OPENRESTY=${OPENRESTY:-$(yaml_find $travis_yaml OPENRESTY_BASE)}
+  openresty_base="$(yaml_find $travis_yaml OPENRESTY_BASE)"
+  openresty="$(yaml_find $travis_yaml OPENRESTY)"
+  if [[ "$openresty_base" ]]; then
+    openresty="$openresty_base"
+  fi
+  OPENRESTY=${OPENRESTY:-$openresty}
 
   if [[ -z $LUAROCKS || -z $OPENSSL || -z $OPENRESTY ]]; then
     >&2 echo "${GOJIRA}: Could not guess version dependencies in" \
