@@ -58,3 +58,6 @@ env:
 
 script:
   - ./test.sh -b $TEST_REPO:$TEST_FROM -t $TEST_REPO:$TEST_TO -d $DATABASE "$TRAVIS_BUILD_DIR/upgrade_paths/${TEST_FROM}_${UPATH_TO-$TEST_TO}/"
+
+after_failure:
+  - cat run.log
