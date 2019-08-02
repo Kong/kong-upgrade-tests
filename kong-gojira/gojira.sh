@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GOJIRA=$(basename $0)
-GOJIRA_VERSION=0.2.0
+GOJIRA_VERSION=0.2.4
 GOJIRA_PATH=$(dirname $(realpath $0))
 DOCKER_PATH=$GOJIRA_PATH/docker
 DOCKER_FILE=$DOCKER_PATH/Dockerfile
@@ -9,20 +9,57 @@ COMPOSE_FILE=$DOCKER_PATH/docker-compose.yml.sh
 
 # Defaults
 GOJIRA_KONGS=${GOJIRA_KONGS:-~/.gojira-kongs}
+GOJIRA_HOME=${GOJIRA_HOME:-$GOJIRA_KONGS/.gojira-home/}
 GOJIRA_DATABASE=postgres
 GOJIRA_REPO=kong-ee
 GOJIRA_TAG=master
+GOJIRA_GIT_HTTPS=${GOJIRA_GIT_HTTPS:-0}
+GOJIRA_USE_SNAPSHOT=${GOJIRA_USE_SNAPSHOT:-0}
+GOJIRA_REDIS_MODE=""
 
-EXTRA_ARGS=""
-GOJIRA_VOLUMES=""
-GOJIRA_PORTS=""
+_EXTRA_ARGS=()
+_GOJIRA_VOLUMES=()
+_GOJIRA_PORTS=()
 
+
+unset FORCE
 unset PREFIX
+unset EXTRA_ARGS
+
 unset GOJIRA_KONG_PATH
 unset GOJIRA_LOC_PATH
 unset GOJIRA_SNAPSHOT
 unset GOJIRA_HOSTNAME
+unset GOJIRA_VOLUMES
+unset GOJIRA_PORTS
 
+function warn() {
+  >&2 \echo -en "\033[1;33m"
+  >&2 echo "WARNING: $@"
+  >&2 \echo -en "\033[0m"
+}
+
+function err {
+  >&2 echo $@
+  exit 1
+}
+
+function validate_arguments {
+    # check for common errors
+
+    # We are joining a network that has a "db" service and we are
+    # adding another "db" service (because we didn't pass --alone).
+    # That will make dns requests to "db" to roundrobin between the
+    # two, and it's probably not what we want.
+    [ -n "$GOJIRA_NETWORK" ] &&
+        [ -n "$GOJIRA_DATABASE" ] &&
+        docker network inspect $GOJIRA_NETWORK &> /dev/null &&
+        docker network inspect $GOJIRA_NETWORK |
+            jq '.[0].Containers[].Name' |
+            grep '_db_' 1>/dev/null &&
+        warn "Creating a db in a network with db already.
+         This might cause to round robin requests to db to multiple dbs. Try --alone flag"
+}
 
 function parse_args {
   ACTION=$1
@@ -31,11 +68,12 @@ function parse_args {
   while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
-      -v|--verbose)
+      -V|--verbose)
         set -x
         ;;
       -h|--help)
         usage
+        exit 0
         ;;
       -k|--kong)
         GOJIRA_KONG_PATH=$(realpath $2)
@@ -51,15 +89,15 @@ function parse_args {
         shift
         ;;
       -pp|--port)
-        GOJIRA_PORTS+=$2,
+        _GOJIRA_PORTS+=("$2")
         shift
         ;;
       -n|--network)
         GOJIRA_NETWORK=$2
         shift
         ;;
-      --volume)
-        GOJIRA_VOLUMES+=$2,
+      -v|--volume)
+        _GOJIRA_VOLUMES+=("$2")
         shift
         ;;
       --cassandra)
@@ -67,6 +105,10 @@ function parse_args {
         ;;
       --alone)
         GOJIRA_DATABASE=
+        ;;
+      --redis-cluster)
+        GOJIRA_REDIS_MODE="cluster"
+        shift
         ;;
       --image)
         GOJIRA_IMAGE=$2
@@ -80,16 +122,33 @@ function parse_args {
         GOJIRA_REPO=$2
         shift
         ;;
+      -f|--force)
+        FORCE=1
+        ;;
+      --git-https)
+        GOJIRA_GIT_HTTPS=1
+        ;;
       -)
-        EXTRA_ARGS+="$(cat $2) "
+        _EXTRA_ARGS+=("$(cat $2)")
         shift
         ;;
+      --)
+        shift
+        _EXTRA_ARGS+=("$@")
+        break
+        ;;
       *)
-        EXTRA_ARGS+="$1 "
+        _EXTRA_ARGS+=("$1")
         ;;
     esac
     shift
   done
+
+  EXTRA_ARGS="${_EXTRA_ARGS[@]}"
+  GOJIRA_PORTS="${_GOJIRA_PORTS[@]}"
+  GOJIRA_VOLUMES="${_GOJIRA_VOLUMES[@]}"
+
+  validate_arguments
 
   if [ ! -z "$GOJIRA_KONG_PATH" ]; then
     GOJIRA_REPO=$(basename $GOJIRA_KONG_PATH)
@@ -108,7 +167,6 @@ function parse_args {
   PREFIX=$(echo $PREFIX | sed "s:[^a-zA-Z0-9_.-]:-:g")
 
   GOJIRA_KONG_PATH=${GOJIRA_KONG_PATH:-$GOJIRA_KONGS/$PREFIX}
-  GOJIRA_SNAPSHOT=gojira:${EXTRA_ARGS:-$PREFIX}
 }
 
 function get_envs {
@@ -118,15 +176,24 @@ function get_envs {
   export GOJIRA_PORTS
   export GOJIRA_VOLUMES
   export GOJIRA_DATABASE
+  export GOJIRA_REDIS_MODE
   export DOCKER_CTX=$DOCKER_PATH
   export GOJIRA_HOSTNAME
+  export GOJIRA_HOME
+  export GOJIRA_PREFIX=$PREFIX
 }
 
 
 function create_kong {
   mkdir -p $GOJIRA_KONGS
   pushd $GOJIRA_KONGS
-    git clone -b ${GOJIRA_TAG} https://github.com/kong/$GOJIRA_REPO.git $PREFIX || exit
+    local $remote
+    if [[ "$GOJIRA_GIT_HTTPS" = 1 ]]; then
+      remote="https://github.com/kong"
+    else
+      remote="git@github.com:kong"
+    fi
+    git clone -b ${GOJIRA_TAG} $remote/$GOJIRA_REPO.git $PREFIX || exit
   popd
 }
 
@@ -135,7 +202,8 @@ function rawr {
   ROARS=(
     "RAWR" "urhghh" "tasty vagrant" "..." "nomnomnom" "beer"
     "\e[1m\e[31ma \e[33mw \e[93me \e[32ms \e[34mo \e[96mm \e[35me \e[0m"
-    "\e[38;5;206m❤ \e[0m" "ゴジラ"
+    "\e[38;5;206m❤ \e[0m" "ゴジラ" "Fast Track" "coming to a theater near you"
+    "you're breathtaking"
   )
   echo -e ${ROARS[$RANDOM % ${#ROARS[@]}]}
 }
@@ -143,18 +211,35 @@ function rawr {
 
 function roar {
 cat << EOF
-                            _,-}}-._
-                           /\   }  /\\
-                          _|(O\\_ _/O)
-                        _|/  (__''__)
-                      _|\/    WVVVVW    $(rawr)!
-                     \ _\     \MMMM/_
-                   _|\_\     _ '---; \_
-              /\   \ _\/      \_   /   \\
-             / (    _\/     \   \  |'VVV
-            (  '-,._\_.(      'VVV /
-             \         /   _) /   _)
-              '....--''\__vvv)\__vvv)      ldb
+                 _,-}}-._
+                /\   }  /\\
+               _|(O\\_ _/O)
+             _|/  (__''__)
+           _|\/    WVVVVW    $(rawr)!
+          \ _\     \MMMM/_
+        _|\_\     _ '---; \_
+   /\   \ _\/      \_   /   \\
+  / (    _\/     \   \  |'VVV
+ (  '-,._\_.(      'VVV /
+  \         /   _) /   _)
+   '....--''\__vvv)\__vvv)      ldb
+EOF
+}
+
+function booom {
+cat << EOF
+
+
+
+
+    \         .  ./
+  \      .:";'.:.."   /
+      (M^^.^~~:.'").
+-   (/  .    . . \ \)  -
+   ((| :. ~ ^  :. .|))
+-   (\- |  \ /  |  /)  -
+     -\  \     /  /-
+       \  \   /  /......
 EOF
 }
 
@@ -162,7 +247,7 @@ EOF
 function usage {
 cat << EOF
 
-$(roar)
+$(roar | sed -e 's/^/           /')
 
                       Gojira (Godzilla)
 
@@ -173,14 +258,16 @@ Options:
   -p,  --prefix         prefix to use for namespacing
   -k,  --kong           PATH for a kong folder, will ignore tag
   -n,  --network        use network with provided name
+  -r,  --repo           repo to clone kong from
   -pp, --port           expose a port for a kong container
-  --repo                use another kong repo
+  -v,  --volume         add a volume to kong container
   --image               image to use for kong
-  --volume              add a volume to kong container
   --cassandra           use cassandra
   --alone               do not spin up any db
+  --redis-cluster       run redis in cluster mode
   --host                specify hostname for kong container
-  -v,  --verbose        echo every command that gets executed
+  --git-https           use https to clone repos
+  -V,  --verbose        echo every command that gets executed
   -h,  --help           display this help
 
 Commands:
@@ -216,8 +303,11 @@ Commands:
 
   logs          follow container logs
 
+  nuke [-f]     remove all running gojiras. -f for removing all files
+
 EOF
 }
+
 
 function image_name {
   # No supplied dependency versions
@@ -232,13 +322,12 @@ function image_name {
   local travis_yaml=$GOJIRA_KONG_PATH/.travis.yml
   LUAROCKS=${LUAROCKS:-$(yaml_find $travis_yaml LUAROCKS)}
   OPENSSL=${OPENSSL:-$(yaml_find $travis_yaml OPENSSL)}
-  OPENRESTY=${OPENRESTY:-$(yaml_find $travis_yaml OPENRESTY_BASE)}
+  OPENRESTY=${OPENRESTY:-$(yaml_find $travis_yaml OPENRESTY)}
 
   if [[ -z $LUAROCKS || -z $OPENSSL || -z $OPENRESTY ]]; then
-    >&2 echo "${GOJIRA}: Could not guess version dependencies in" \
-             "$travis_yaml. Specify versions as LUAROCKS, OPENSSL and"\
-             "OPENRESTY envs"
-    exit 1
+    err "${GOJIRA}: Could not guess version dependencies in" \
+        "$travis_yaml. Specify versions as LUAROCKS, OPENSSL and"\
+        "OPENRESTY envs"
   fi
 
   GOJIRA_IMAGE=gojira:luarocks-$LUAROCKS-openresty-$OPENRESTY-openssl-$OPENSSL
@@ -246,10 +335,6 @@ function image_name {
 
 
 function build {
-  if [[ ! -z $GOJIRA_IMAGE ]]; then
-    return
-  fi
-
   image_name
 
   BUILD_ARGS=(
@@ -283,21 +368,60 @@ function p_compose {
 }
 
 
-function compose {
-  get_envs
-  docker-compose -f <($COMPOSE_FILE) "$@"
+function query_image {
+  [[ ! -z $(query_sha $1) ]] || return 1
+  echo $1
+}
+
+function query_sha {
+  local image_sha=$(docker images "--filter=reference=$1" -q)
+  [[ ! -z $image_sha ]] || return 1
+  echo $image_sha
+}
+
+
+function snapshot_image_name {
+  if [[ ! -z $1 ]]; then GOJIRA_SNAPSHOT=$1; return; fi
+  image_name
+  local sha
+  local base_sha=$(query_sha $GOJIRA_IMAGE)
+  pushd $GOJIRA_KONG_PATH
+    sha=$(git hash-object kong-*.rockspec)
+  popd
+  sha=$(echo $base_sha:$sha | sha1sum | awk '{printf $1}')
+  GOJIRA_SNAPSHOT=gojira:snap-$sha
+}
+
+
+function setup {
+  mkdir -p $GOJIRA_KONGS
+  [ -d $GOJIRA_HOME ] || cp -r $DOCKER_PATH/home_template $GOJIRA_HOME
+  # Ideally we figure out when we need to have a GOJIRA_KONG_PATH or not
+  # so we can create it from here.
 }
 
 
 main() {
-  parse_args $@
+  parse_args "$@"
+  setup
 
   case $ACTION in
   up)
-    build || exit 1
     # kong path does not exist. This means we are upping a build that came
     # with no auto deps, most probably
     if [[ ! -d "$GOJIRA_KONG_PATH" ]]; then create_kong; fi
+
+    if [[ -z $GOJIRA_IMAGE ]] && [[ "$GOJIRA_USE_SNAPSHOT" == 1 ]]; then
+      build
+      snapshot_image_name
+      if [[ ! -z $(query_image $GOJIRA_SNAPSHOT) ]]; then
+        GOJIRA_IMAGE=$GOJIRA_SNAPSHOT
+      fi
+    fi
+
+    if [[ -z $GOJIRA_IMAGE ]]; then
+      build || exit 1
+    fi
     p_compose up -d
     ;;
   down)
@@ -315,11 +439,14 @@ main() {
     echo $GOJIRA_KONG_PATH
     cd $GOJIRA_KONG_PATH 2> /dev/null
     ;;
-  -h|--help|help)
-    usage
-    ;;
   run)
-    p_compose exec kong bash -l -i -c "$EXTRA_ARGS"
+    # https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Shell-Parameter-Expansion
+    local args=${_EXTRA_ARGS[@]@Q}
+    if [[ -t 1 ]]; then
+      p_compose exec kong bash -l -i -c "$args"
+    else
+      p_compose exec -T kong bash -l -c "$args"
+    fi
     ;;
   images)
     docker images --filter=reference='gojira*' $EXTRA_ARGS
@@ -330,62 +457,59 @@ main() {
     ;;
   image\?)
     image_name 2> /dev/null
-    local has_image=$(docker images "--filter=reference=$GOJIRA_IMAGE" -q)
-    if [[ -z $has_image ]]; then
-      exit 1
-    fi
-    echo $GOJIRA_IMAGE
+    query_image $GOJIRA_IMAGE || exit 1
     ;;
   image\!)
     image_name 2> /dev/null
     docker rmi $GOJIRA_IMAGE || exit 1
     ;;
   ps)
-    PREFIXES=$(
-      docker ps --filter "label=com.docker.compose.project" -q \
-      | xargs docker inspect --format='{{index .Config.Labels "com.docker.compose.project"}}' \
-      | uniq
-    )
-    for pref in $PREFIXES; do
-      compose -p $pref ps $EXTRA_ARGS
-    done
+    docker ps --filter "label=com.konghq.gojira" $EXTRA_ARGS
     ;;
   ls)
     ls -1 $EXTRA_ARGS $GOJIRA_KONGS
     ;;
   compose)
-    get_envs
+    image_name
     p_compose $EXTRA_ARGS
     ;;
   snapshot)
+    snapshot_image_name $EXTRA_ARGS
     local cmd='cat /proc/self/cgroup | head -1 | sed "s/.*docker\///"'
-    local c_id=$(p_compose exec kong bash -l -i -c "$cmd" | tr -d '\r')
+    local c_id=$(p_compose exec -T kong bash -c "$cmd" | tr -d '\r')
     docker commit $c_id $GOJIRA_SNAPSHOT || exit 1
     >&2 echo "Created snapshot: $GOJIRA_SNAPSHOT"
     ;;
   snapshot\?)
-    local has_image=$(docker images "--filter=reference=$GOJIRA_SNAPSHOT" -q)
-    if [[ -z $has_image ]]; then
-      exit 1
-    fi
-    echo $GOJIRA_SNAPSHOT
+    snapshot_image_name $EXTRA_ARGS
+    query_image $GOJIRA_SNAPSHOT || err "$GOJIRA_SNAPSHOT not found"
     ;;
   snapshot\!)
+    snapshot_image_name $EXTRA_ARGS
     docker rmi $GOJIRA_SNAPSHOT || exit 1
     ;;
   logs)
-    # Once we use getopts / fix argument hijacking, we can remove this action
-    # for gojira compose logs ...
-    p_compose logs -f $EXTRA_ARGS
+    p_compose logs -f --tail=100 $EXTRA_ARGS
     ;;
   roar)
-    echo; roar; echo
+      if [[ $(($RANDOM % 5)) -eq "0" ]] ; then
+          echo; paste <(echo "$(booom)") <($0 roar) | expand -t30
+      else
+          echo; roar; echo
+      fi
     ;;
   version)
     echo $GOJIRA $GOJIRA_VERSION
     ;;
+  nuke)
+    docker rm -fv $($0 ps -aq)
+    docker network prune -f
+    [ -n "$FORCE" ] && rm -fr $GOJIRA_KONGS/* ;
+    echo; (booom | sed -e 's/^/          /'); echo
+    ;;
   *)
     usage
+    exit 1
     ;;
   esac
 }
@@ -393,4 +517,4 @@ main() {
 pushd() { builtin pushd $1 > /dev/null; }
 popd() { builtin popd > /dev/null; }
 
-main $*
+main "$@"

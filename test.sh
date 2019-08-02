@@ -290,7 +290,7 @@ run_gojira() {
   local host=$1 ; shift
   local action=$1 ; shift
   local args=$@
-  ./kong-gojira/gojira.sh $action -v ${GOJIRA_SETTINGS[*]} --repo $repo -t $version --host $host $@
+  ./kong-gojira/gojira.sh $action -V ${GOJIRA_SETTINGS[*]} --repo $repo -t $version --host $host $@
 }
 
 has_new_migrations() {
@@ -338,8 +338,8 @@ install_kong() {
     if [[ -z $image ]]; then
         # Do build!
         msg "Building base dependencies for $repo $version"
-        ./kong-gojira/gojira.sh build -v --repo $repo -t $version
-        image=$(./kong-gojira/gojira.sh image -v --repo $repo -t $version)
+        ./kong-gojira/gojira.sh build -V --repo $repo -t $version
+        image=$(./kong-gojira/gojira.sh image -V --repo $repo -t $version)
     fi
 
     ./kong-gojira/gojira.sh up --repo $repo -t $version --alone --image $image
