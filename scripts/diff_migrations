@@ -36,13 +36,13 @@ end
 local base_filename = arg[1]
 local target_filename = arg[2]
 
-local base_migrations = read_migrations(base_filename)
-local target_migrations = read_migrations(target_filename)
+local base_migrations = assert(read_migrations(base_filename))
+local target_migrations = assert(read_migrations(target_filename))
 
 local new_migrations = {}
 for class, migs in pairs(target_migrations) do
   for _, mig in ipairs(migs) do
-    if not base_migrations[class][mig] then
+    if not base_migrations[class] or not base_migrations[class][mig] then
       table.insert(new_migrations, { class = class, name = mig })
     end
   end
