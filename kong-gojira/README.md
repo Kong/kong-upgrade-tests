@@ -21,14 +21,16 @@ Options:
   -p,  --prefix         prefix to use for namespacing
   -k,  --kong           PATH for a kong folder, will ignore tag
   -n,  --network        use network with provided name
+  -r,  --repo           repo to clone kong from
   -pp, --port           expose a port for a kong container
-  --repo                use another kong repo
+  -v,  --volume         add a volume to kong container
   --image               image to use for kong
-  --volume              add a volume to kong container
   --cassandra           use cassandra
   --alone               do not spin up any db
+  --redis-cluster       run redis in cluster mode
   --host                specify hostname for kong container
-  -v,  --verbose        echo every command that gets executed
+  --git-https           use https to clone repos
+  -V,  --verbose        echo every command that gets executed
   -h,  --help           display this help
 
 Commands:
@@ -64,6 +66,8 @@ Commands:
 
   logs          follow container logs
 
+  nuke          remove all running gojiras
+
 ```
 
 # gojira
@@ -84,9 +88,16 @@ use [kong-build-tools].
 
 ## Installation
 
+gojira depends on docker (18.09.02) and docker-compose (1.23.2). As usual, the
+most recent, the better.
+
+> Note you need `~/.local/bin` on your `$PATH`.
+
 ```
+PATH=$PATH:~/.local/bin
 git clone git@github.com:Kong/kong-gojira.git
-ln -s kong-gojira/gojira.sh ~/.local/bin/gojira
+mkdir -p ~/.local/bin
+ln -s $(realpath kong-gojira/gojira.sh) ~/.local/bin/gojira
 ```
 
 ### Additional for OS X
@@ -95,3 +106,11 @@ ln -s kong-gojira/gojira.sh ~/.local/bin/gojira
 brew install coreutils
 ```
 
+
+### Usage
+
+For the time being, we have a [guide].
+Also, a [vagrant to gojira guide].
+
+[guide]: doc/manual.md
+[vagrant to gojira guide]: doc/vagrant.md
