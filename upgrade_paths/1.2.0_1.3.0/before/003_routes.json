@@ -1,0 +1,12 @@
+[
+  [ "routes have no headers attribute", [
+    "admin", "POST", "/routes", {
+      "headers": { "foo": ["bar"] }
+    } ],
+    [ 400, {
+      "fields": {
+        "headers": "unknown field"
+      }
+    } ]
+  ]
+]

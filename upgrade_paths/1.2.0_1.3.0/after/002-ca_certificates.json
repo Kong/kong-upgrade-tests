@@ -1,0 +1,36 @@
+[
+  [ "test_ca_certificate is still present", [
+    "admin_2", "GET", "/ca_certificates/#{test_ca_certificate.id}" ],
+    [ 200, {
+        "id": "#{test_ca_certificate.id}"
+    } ]
+  ],
+  [ "filter ca_certificates by tag after migrating",
+    [ "admin_2", "GET", "/ca_certificates?tags=potato" ],
+    [ 200, {
+      "data": [ {
+        "id": "#{test_ca_certificate.id}",
+        "tags": [ "potato" ]
+      } ]
+    } ]
+  ],
+  [ "update ca_certificates tags after migrating",
+    [  "admin_2", "PATCH", "/ca_certificates/#{test_ca_certificate.id}", {
+      "tags": [ "carrot" ]
+    } ],
+    [ 200, { "tags": [ "carrot" ] }]
+  ],
+  [ "filter ca_certificates by old tag after updating after migrating",
+    [ "admin_2", "GET", "/ca_certificates?tags=potato" ],
+    [ 200, { "data": [] } ]
+  ],
+  [ "filter ca_certificates by new tag after updating after migrating",
+    [ "admin_2", "GET", "/ca_certificates?tags=carrot" ],
+    [ 200, {
+      "data": [ {
+        "id": "#{test_ca_certificate.id}",
+        "tags": [ "carrot" ]
+      } ]
+    } ]
+  ]
+]
