@@ -192,7 +192,8 @@ main() {
     msg "Running requests against Kong $base_version"
     msg "--------------------------------------------------"
 
-    rm -f responses.dump
+    msg "Removing responses.dump"
+    b_gojira run rm -f responses.dump
 
     for file in $test_suite_dir/before/*.json
     do
