@@ -157,9 +157,9 @@ main() {
     image=$(b_gojira snapshot?)
 
     if [[ "$DATABASE" == "postgres" ]]; then
-        b_gojira up --image $image
+        b_gojira up --git-https --image $image
     elif [[ "$DATABASE" == "cassandra" ]]; then
-        b_gojira up --image $image --cassandra
+        b_gojira up --git-https --image $image --cassandra
     fi
 
     msg "Waiting for $DATABASE"
@@ -204,9 +204,9 @@ main() {
     image=$(t_gojira snapshot?)
 
     if [[ "$DATABASE" == "postgres" ]]; then
-        t_gojira up --image $image --alone
+        t_gojira up --git-https --image $image --alone
     elif [[ "$DATABASE" == "cassandra" ]]; then
-        KONG_DATABASE=cassandra t_gojira up --image $image --alone
+        KONG_DATABASE=cassandra t_gojira up --git-https --image $image --alone
     fi
 
     #######
@@ -343,7 +343,7 @@ install_kong() {
         image=$(./kong-gojira/gojira.sh image -V --repo $repo -t $version)
     fi
 
-    ./kong-gojira/gojira.sh up --repo $repo -t $version --alone --image $image
+    ./kong-gojira/gojira.sh up --git-https --repo $repo -t $version --alone --image $image
     ./kong-gojira/gojira.sh run --repo $repo -t $version make dev || exit 1
     ./kong-gojira/gojira.sh snapshot --repo $repo -t $version
     ./kong-gojira/gojira.sh down --repo $repo -t $version
