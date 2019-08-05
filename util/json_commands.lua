@@ -264,7 +264,8 @@ local function parse_command(command, http_clients, pos, responses)
   local context = string.format("command #%d (%s)", pos, name)
 
   if name ~= "" and name ~= "_" and responses[name] then
-    exit("%s: name already exists", context)
+    exit("%s: name was already used by a previous command. " ..
+         "Rename it to something else or use '' or '_' to ignore.", context)
   end
 
   local request = parse_command_request(command[2], http_clients, context, responses)
