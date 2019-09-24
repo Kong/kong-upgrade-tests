@@ -1,0 +1,22 @@
+[
+  [ "tags were added for basic-auth plugin",
+    [ "psql", "SELECT data_type FROM information_schema.COLUMNS WHERE TABLE_NAME = 'basicauth_credentials' AND COLUMN_NAME = 'tags'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "tags were added for hmac-auth plugin",
+    [ "psql", "SELECT data_type FROM information_schema.COLUMNS WHERE TABLE_NAME = 'hmacauth_credentials' AND COLUMN_NAME = 'tags'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "tags were added for jwt plugin",
+    [ "psql", "SELECT data_type FROM information_schema.COLUMNS WHERE TABLE_NAME = 'jwt_secrets' AND COLUMN_NAME = 'tags'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "tags were added for key-auth plugin",
+    [ "psql", "SELECT data_type FROM information_schema.COLUMNS WHERE TABLE_NAME = 'keyauth_credentials' AND COLUMN_NAME = 'tags'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ],
+  [ "tags were added for oauth2 plugin",
+    [ "psql", "SELECT data_type FROM information_schema.COLUMNS WHERE TABLE_NAME = 'oauth2_credentials' AND COLUMN_NAME = 'tags'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ]
+]

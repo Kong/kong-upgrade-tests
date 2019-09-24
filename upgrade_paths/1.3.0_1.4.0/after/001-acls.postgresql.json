@@ -1,0 +1,6 @@
+[
+  [ "tags were added for ACLs",
+    [ "psql", "SELECT data_type FROM information_schema.COLUMNS WHERE TABLE_NAME = 'acls' AND COLUMN_NAME = 'tags'" ],
+    [ 1, [ { "data_type": "ARRAY" } ] ]
+  ]
+]
