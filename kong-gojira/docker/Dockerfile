@@ -1,4 +1,4 @@
-FROM ubuntu:xenial
+FROM ubuntu:bionic
 
 # Build tools
 RUN apt-get update && \
@@ -13,6 +13,7 @@ RUN apt-get update && \
         libperl-dev \
         libreadline-dev \
         libxslt1-dev \
+        libpasswdqc-dev \
         make \
         perl \
         unzip \
@@ -28,17 +29,17 @@ RUN apt-get update && \
 ARG LUAROCKS
 ARG OPENSSL
 ARG OPENRESTY
+ARG OPENRESTY_PATCHES
 
 ENV BUILD_PREFIX=/build
 ENV OPENSSL_INSTALL=${BUILD_PREFIX}/openssl
 ENV OPENRESTY_INSTALL=${BUILD_PREFIX}/openresty
 ENV LUAROCKS_INSTALL=${BUILD_PREFIX}/luarocks
 
-ENV KONG_NGX_MODULE=${BUILD_PREFIX}/lua-kong-nginx-module
-COPY lib/lua-kong-nginx-module ${KONG_NGX_MODULE}
-
+ARG KONG_NGX_MODULE=447bbf8
+ARG BUILD_TOOLS=a229317
+RUN mkdir -p ${BUILD_PREFIX}
 COPY build.sh ${BUILD_PREFIX}
-ARG BUILD_TOOLS=a939947
 RUN ${BUILD_PREFIX}/build.sh
 
 ENV OPENSSL_DIR=${OPENSSL_INSTALL}

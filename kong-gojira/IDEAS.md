@@ -6,3 +6,4 @@
 * maybe add an --rm flag or smth. Maybe --rm deletes .kong-gojiras/whatev too
 * look at templating with https://github.com/tests-always-included/mo
 * use getopts
+* add a way to add comments to snapshots
