@@ -1,5 +1,177 @@
 # Manual
 
+Gojira is a multi-purpose tool to ease development and testing of Kong by
+using docker containers. Very similar to a vagrant environment, but completely
+unlike it.
+
+Whilst developing, it's very easy to jump between branches, different versions
+and dependencies. With gojira, you can have as many instances running different
+versions at the same time. The base dependencies are only built once, and
+the state of a container [can be stored for later reuse](#using-snapshots-to-store-the-state-of-a-running-container).
+
+It's very important to understand that it uses docker and docker-compose under
+the hood. The best summary would be a docker-compose file with flags and super
+powers. Read more about [gojira compose](#fallback-to-docker-compose) command.
+
+Of course, nothing prevents running _just one_ kong instance, very similarly to
+how vagrant is used. Read more about working with [local kong paths](#local).
+
+## Getting started
+
+First things first, let's verify that gojira is working:
+
+```
+$ gojira roar
+                 _,-}}-._
+                /\   }  /\
+               _|(O\_ _/O)
+             _|/  (__''__)
+           _|\/    WVVVVW    you're breathtaking!
+          \ _\     \MMMM/_
+        _|\_\     _ '---; \_
+   /\   \ _\/      \_   /   \
+  / (    _\/     \   \  |'VVV
+ (  '-,._\_.(      'VVV /
+  \         /   _) /   _)
+   '....--''\__vvv)\__vvv)      ldb
+```
+
+Let's run a `gojira up` and see what happens
+
+```
+$ gojira up
+Cloning into 'kong-master'...
+[...]
+Building gojira:luarocks-3.2.1-openresty-1.15.8.2_master-openssl-1.1.1d
+
+       Version info
+==========================
+ * OpenSSL:     1.1.1d
+ * OpenResty:   1.15.8.2
+   + patches:   master
+ * LuaRocks:    3.2.1
+==========================
+
+Sending build context to Docker daemon  20.99kB
+Step 1/26 : FROM ubuntu:bionic
+ ---> 2ca708c1c9cc
+[...]
+Creating network "kong-master_gojira" with the default driver
+Creating kong-master_db_1    ... done
+Creating kong-master_redis_1 ... done
+Creating kong-master_kong_1  ... done
+```
+
+It cloned `kong` master into `~/.gojira-kongs/kong-master`, built all the needed
+dependencies, tagged it as `gojira:luarocks-3.2.1-openresty-1.15.8.2_master-openssl-1.1.1d`
+and started a docker-compose prefix called `kong-master` together with a
+database and redis.
+
+Running gojiras can be checked by `gojira ps`. Let's try with a branch now.
+When no `-t` is provided it defaults to `master`.
+
+```
+$ gojira up -t 1.2.0
+Cloning into 'kong-1.2.0'...
+[...]
+Building gojira:luarocks-2.4.3-openresty-1.13.6.2_master-openssl-1.1.1b
+
+       Version info
+==========================
+ * OpenSSL:     1.1.1b
+ * OpenResty:   1.13.6.2
+   + patches:   master
+ * LuaRocks:    2.4.3
+==========================
+[...]
+Creating network "kong-120_gojira" with the default driver
+Creating kong-120_redis_1 ... done
+Creating kong-120_db_1    ... done
+Creating kong-120_kong_1  ... done
+```
+
+Notice the different dependencies between them. If we now `gojira ps`, the
+two instances are running independently of each other. And we can work with
+one or the other.
+
+To access the directory where gojira downloaded the code, gojira can be
+sourced together with the cd command:
+
+```
+$ source gojira cd
+/some/path/to/.gojira-kongs/kong-master
+$ . gojira cd -t 1.2.0
+/some/path/to/.gojira-kongs/kong-1.2.0
+```
+
+It's all fun to have running containers, but it's even better to do something
+with them! Let's run a make dev inside the running gojiras:
+
+```
+$ gojira run make dev
+$ gojira run -t 1.2.0 make dev
+```
+
+By using the `-t 1.2.0` we are referencing to the running gojira on that
+branch. With no `-t`, it defaults to the one on the `master` branch.
+
+We can also get a shell into them
+
+```
+$ gojira shell -t 1.2.0
+[kong-1.2.0:/kong]# exit
+$ gojira shell
+[kong-ee-master:/kong]#
+```
+
+All gojira instances share a folder between them: `$HOME`. Try it:
+
+```
+$ gojira shell -t 1.2.0
+[kong-1.2.0:/kong]# touch $HOME/foobar
+[kong-1.2.0:/kong]# exit
+$ gojira shell
+[kong-ee-master:/kong]# ls $HOME
+foobar
+[kong-ee-master:/kong]#
+```
+
+By default, this folder is stored at `~/.gojira-kongs/.gojira-home`. It's a
+very useful place to have rc files, utils and provides a customization point
+for gojira.
+
+The pattern of having prefixes stored under `~/.gojira-kongs` is very useful
+for quick testing different versions and forgetting about where to store them.
+But it might not be the most common case. That's what the `-k` flag is for:
+
+```
+$ gojira -k some/path/to/a/kong
+Building gojira:luarocks-3.1.3-openresty-1.15.8.1_master-openssl-1.1.1c
+[...]
+Creating network "kong-0c4151a3c047b3f5592cce0ad4afaaa6_gojira" with the default driver
+Creating kong-0c4151a3c047b3f5592cce0ad4afaaa6_db_1    ... done
+Creating kong-0c4151a3c047b3f5592cce0ad4afaaa6_redis_1 ... done
+Creating kong-0c4151a3c047b3f5592cce0ad4afaaa6_kong_1  ... done
+```
+
+There's now a container running under the fixed prefix `kong-0c4151a3c047b3f5592cce0ad4afaaa6`.
+Any gojira command that references this path will access it. It gets better by
+setting `GOJIRA_DETECT_LOCAL=1` on your environment. All `gojira` commands run
+from within a kong repository will assume a `-k` flag into it, making the
+following two commands equivalent:
+
+```
+# reference a path by -k
+gojira up -k some/path/to/kong
+# run it from within a kong folder
+export GOJIRA_DETECT_LOCAL=1
+cd some/path/to/kong
+gojira up
+```
+
+That's the main gist of it. The following are examples of different usage
+patterns that are possible by using gojira.
+
 ## Usage patterns
 
 ### Start kong (master)
@@ -67,6 +239,30 @@ Again, we can access the path where this kong prefix is stored by
 . gojira cd -t 0.34-1
 ```
 
+
+### Start a local kong
+
+By using th `-k | --kong` flag, you can point to local kong folder.
+
+```
+$ gojira up -k path/to/some/kong
+$ gojira run -k path/to/some/kong some commands
+$ gojira shell -k path/to/some/kong
+$ gojira down -k path/to/some/kong
+```
+
+By turning on `GOJIRA_DETECT_LOCAL=1`, gojira will automatically detect when
+it runs within a kong repository. The previous would become
+
+```
+$ export GOJIRA_DETECT_LOCAL=1
+$ cd path/to/some/kong
+$ gojira up
+$ gojira run some commands
+$ gojira shell
+$ gojira down
+```
+
 ### Using two gojiras with the same version
 
 gojira has the notion of prefixes. With the `-p | --prefix` flag you can avoid
@@ -93,6 +289,28 @@ gojira run -p bar kong roar
 |                                                  | `curl -i -X POST   --url http://localhost:8001/services/   --data 'name=example-service'   --data 'url=http://mockbin.org'` |
 | `gojira run curl http://localhost:8001/services` |                                                                                                                             |
 
+### Run a migration from one version to another
+
+By using the following step, it's possible and easy to check a migration from
+a version to another:
+
+```
+gojira up -t 1.2.0 --network some-network
+gojira up -t 1.3.0 --network some-network --alone
+gojira shell -t 1.2.0
+$ kong migrations bootstrap
+$ kong start
+$ # Add some data maybe
+$ http POST :8001/services name=example host=mockbin.org
+$ http -f POST :8001/services/example/routes hosts=example.com
+$ # ...
+$ exit
+gojira shell -t 1.3.0
+$ # let's migrate the database from 1.2.0 to 1.3.0
+$ kong migrations up
+$ kong start
+$ http :8000/request/foo Host:example.com
+```
 
 ### use a different starting image
 
@@ -230,3 +448,19 @@ gojira compose exec db cqlsh           #Cassandra
 ```
 docker rmi $(gojira images -q)
 ```
+
+
+### Run both cassandra and postgres tests on the same run
+
+The solution for this is to spin up a cassandra container separately on a
+joined network. Note that for full test coverage it's recommended to
+run specs normally setting `KONG_TEST_DATABASE` to the specific target.
+
+```
+docker run --name gojira_cassandra --network foobar -d cassandra:3.9
+KONG_TEST_CASSANDRA_CONTACT_POINTS=gojira_cassandra KONG_CASSANDRA_CONTACT_POINTS=gojira_cassandra gojira up --network foobar
+gojira shell
+$ unset KONG_TEST_DATABASE
+$ bin/busted -o gtest some/tests
+```
+
