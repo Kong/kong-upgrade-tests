@@ -204,6 +204,7 @@ function rawr {
     "\e[1m\e[31ma \e[33mw \e[93me \e[32ms \e[34mo \e[96mm \e[35me \e[0m"
     "\e[38;5;206m❤ \e[0m" "ゴジラ" "Fast Track" "coming to a theater near you"
     "you're breathtaking"
+    "Ho-ho-ho!"
   )
   echo -e ${ROARS[$RANDOM % ${#ROARS[@]}]}
 }
@@ -211,8 +212,11 @@ function rawr {
 
 function roar {
 cat << EOF
-                 _,-}}-._
-                /\   }  /\\
+                  ___
+                /  /  \
+               / /| - - |
+               * | - - - |
+                |---------|
                _|(O\\_ _/O)
              _|/  (__''__)
            _|\/    WVVVVW    $(rawr)!
