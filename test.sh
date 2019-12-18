@@ -21,7 +21,6 @@ base_host=base_kong
 target_host=target_kong
 test_suite_dir=
 ssh_key=$HOME/.ssh/id_rsa
-patches_branch=master
 
 # control variables
 keep=0
@@ -65,10 +64,6 @@ main() {
                 ;;
             -t|--target)
                 target_version=$2
-                shift
-                ;;
-            -p|--patches)
-                patches_branch=$2
                 shift
                 ;;
             -m|--force-migrating)
@@ -406,7 +401,6 @@ show_help() {
     echo
     echo "Options:"
     echo "  -d,--database        database (default: postgres)"
-    echo "  -p,--patches         Kong/openresty-patches branch to use (default: master)"
     echo "  -f,--force-git-clone cleanup cache and force git clone"
     echo "  -m,--force-migrating run the migrating specs (needed on non-semantic-versioned tags)"
     echo "  -k,--keep            do not compile and clone repositories from scratch"
