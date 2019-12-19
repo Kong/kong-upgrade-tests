@@ -1,7 +1,0 @@
-[
-  [ "acls still work",
-    [ "admin_2", "GET", "/consumers/acl_consumer/acls/admin" ],
-    [ 200, { "group": "admin" } ]
-  ]
-]
-
