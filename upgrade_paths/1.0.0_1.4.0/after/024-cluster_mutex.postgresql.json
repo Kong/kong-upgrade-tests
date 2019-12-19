@@ -1,6 +1,0 @@
-[
-  [ "cluster_events_expire_at_idx index is created after migrations to 1.2.0",
-    [ "psql", "select tablename from pg_indexes where indexname = 'cluster_events_expire_at_idx'" ],
-    [ 1, [ { "tablename": "cluster_events" } ] ]
-  ]
-]

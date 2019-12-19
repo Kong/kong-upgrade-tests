@@ -1,8 +1,0 @@
-[
-  [ "routes new headers attribute is live",
-    [ "admin_2", "GET", "/routes/headers_route" ],
-    [ 200, {
-      "headers": { "foo": ["bar"] }
-    } ]
-  ]
-]

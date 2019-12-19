@@ -1,6 +1,0 @@
-[
-  [ "ca_certificates does not exist on this version of Kong",
-    [ "admin", "GET", "/ca_certificates" ],
-    [ 404 ]
-  ]
-]

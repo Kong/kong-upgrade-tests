@@ -1,8 +1,0 @@
-[
-  [ "routes.https_redirect_status_code field is added",
-    [ "cql", "SELECT type FROM system_schema.columns WHERE keyspace_name = 'kong' AND table_name = 'routes' and column_name = 'https_redirect_status_code'" ],
-    [ 1, [ { "type": "int" } ] ]
-  ]
-]
-
-
