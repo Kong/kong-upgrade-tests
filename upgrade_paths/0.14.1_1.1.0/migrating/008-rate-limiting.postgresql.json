@@ -1,6 +1,0 @@
-[
-  [ "ratelimiting_metrics period_date has a time zone now",
-    [ "psql", "select data_type from information_schema.columns where column_name = 'period_date' and table_name = 'ratelimiting_metrics'" ],
-    [ 1, [ { "data_type": "timestamp with time zone" } ] ]
-  ]
-]
