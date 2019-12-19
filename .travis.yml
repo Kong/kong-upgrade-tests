@@ -18,8 +18,8 @@ env:
     - IMAGES_PATH=~/.gojira-images
     - GOJIRA_VERSION=v0.2.0
     - TEST_REPO=kong
-    - TAG_OR_BRANCH_TO=master
-    - UPGRADE_PATH_TO=1.4.0
+    - TAG_OR_BRANCH_TO=next
+    - UPATH_TO=2.0.0
   matrix:
     - TAG_OR_BRANCH_FROM=0.14.1
       DATABASE=postgres
@@ -43,4 +43,4 @@ env:
       DATABASE=cassandra
 
 script:
-  - ./test.sh -b $TEST_REPO:$TAG_OR_BRANCH_FROM -t $TEST_REPO:$TAG_OR_BRANCH_TO -d $DATABASE "$TRAVIS_BUILD_DIR/upgrade_paths/${TAG_OR_BRANCH_FROM}_${UPGRADE_PATH_TO-$TAG_OR_BRANCH_TO}/"
+  - ./test.sh -b $TEST_REPO:$TAG_OR_BRANCH_FROM -t $TEST_REPO:$TAG_OR_BRANCH_TO -d $DATABASE "$TRAVIS_BUILD_DIR/upgrade_paths/${TAG_OR_BRANCH_FROM}_${UPATH_TO-$TAG_OR_BRANCH_TO}/"
