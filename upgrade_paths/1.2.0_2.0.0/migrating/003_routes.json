@@ -1,0 +1,29 @@
+[
+  [ "routes have no headers attribute on old admin while migrating", [
+    "admin", "POST", "/routes", {
+      "headers": { "foo": ["bar"] }
+    } ],
+    [ 400, {
+      "fields": {
+        "headers": "unknown field"
+      }
+    } ]
+  ],
+  [ "test_service_for_headers", [
+    "admin_2", "POST", "/services", {
+      "url": "http://mockbin.com/request"
+    } ],
+    [ 201 ]
+  ],
+
+  [ "routes have headers attribute on new admin while migrating", [
+    "admin_2", "POST", "/routes", {
+      "name": "headers_route",
+      "service": { "id": "#{test_service_for_headers.id}" },
+      "headers": { "foo": ["bar"] }
+    } ],
+    [ 201, {
+      "headers": { "foo": ["bar"] }
+    } ]
+  ]
+]

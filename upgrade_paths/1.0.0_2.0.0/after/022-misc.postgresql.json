@@ -1,0 +1,6 @@
+[
+  [ "upsert_ttl function is removed",
+    [ "psql", "select count(*) from pg_proc where proname = 'upsert_ttl'" ],
+    [ 1, [ { "count": 0 } ] ]
+  ]
+]

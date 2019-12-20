@@ -1,0 +1,6 @@
+[
+  [ "routes.https_redirect_status_code field is added",
+    [ "psql", "select data_type from information_schema.columns where column_name = 'https_redirect_status_code' and table_name = 'routes'" ],
+    [ 1, [ { "data_type": "integer" } ] ]
+  ]
+]

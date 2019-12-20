@@ -1,0 +1,40 @@
+[
+  [ "test_service",
+    [ "admin", "POST", "/services", {
+      "name": "test_service",
+      "url": "https://httpbin.org/anything"
+    } ],
+    [ 201, {
+      "name": "test_service",
+      "host": "httpbin.org",
+      "path": "/anything",
+      "protocol": "https"
+    } ]
+  ],
+  [ "test_route",
+    [ "admin", "POST", "/services/#{test_service.id}/routes", {
+      "hosts": [ "test_service.example.com" ]
+    } ],
+    [ 201, {
+      "hosts": [ "test_service.example.com" ]
+    } ]
+  ],
+  [ "test_service check",
+    [ "admin", "GET", "/services" ],
+    [ 200, {
+      "data": [ {
+        "name": "test_service",
+        "host": "httpbin.org",
+        "path": "/anything",
+        "protocol": "https"
+      } ]
+    } ]
+  ],
+  [ "test proxy works",
+    [ "proxy", "GET", "/", "", { "Host": "test_service.example.com" } ],
+    [ 200,
+      null,
+      { "Via": "kong/1.1.0" }
+    ]
+  ]
+]
