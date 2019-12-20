@@ -34,19 +34,6 @@
       }
     ]
   ],
-  [ "green cluster: list plugins for jwt_service, with new run_on field",
-    [ "admin_2", "GET", "/services/#{jwt_service.id}/plugins", "", {} ],
-    [ 200, {
-        "data": [
-          {
-            "run_on": "first"
-          }
-        ],
-        "next": null
-      }
-    ]
-  ],
-
   [ "green cluster: test jwt still blocks calls to jwt_api without a token",
     [ "proxy_2", "GET", "/", "", { "Host": "jwt_api.test" } ],
     [ 401, {
