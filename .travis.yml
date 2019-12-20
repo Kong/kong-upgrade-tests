@@ -31,6 +31,8 @@ env:
       DATABASE=postgres
     - TAG_OR_BRANCH_FROM=1.3.0
       DATABASE=postgres
+    - TAG_OR_BRANCH_FROM=1.4.0
+      DATABASE=postgres
     - TAG_OR_BRANCH_FROM=0.14.1
       DATABASE=cassandra
     - TAG_OR_BRANCH_FROM=1.0.0
@@ -40,6 +42,8 @@ env:
     - TAG_OR_BRANCH_FROM=1.2.0
       DATABASE=cassandra
     - TAG_OR_BRANCH_FROM=1.3.0
+      DATABASE=cassandra
+    - TAG_OR_BRANCH_FROM=1.4.0
       DATABASE=cassandra
 
 script:
