@@ -1,0 +1,9 @@
+[
+  [ "001-basic-proxying test_route is v1",
+    [ "admin_2", "GET", "/routes/#{test_route.id}", "", {} ],
+    [ 200, {
+      "hosts": [ "test_service.example.com" ],
+      "path_handling": "v1"
+    } ]
+  ]
+]
