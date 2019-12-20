@@ -1,0 +1,56 @@
+[
+  [ "test_upstream_none",
+    [ "admin", "POST", "/upstreams", {
+      "name": "test_upstream_none",
+      "hash_on": "none"
+    } ],
+    [ 201, {
+      "name": "test_upstream_none",
+      "hash_on": "none"
+    } ]
+  ],
+  [ "test_upstream_consumer",
+    [ "admin", "POST", "/upstreams", {
+      "name": "test_upstream_consumer",
+      "hash_on": "consumer"
+    } ],
+    [ 201, {
+      "name": "test_upstream_consumer",
+      "hash_on": "consumer"
+    } ]
+  ],
+  [ "test_upstream_ip",
+    [ "admin", "POST", "/upstreams", {
+      "name": "test_upstream_ip",
+      "hash_on": "ip"
+    } ],
+    [ 201, {
+      "name": "test_upstream_ip",
+      "hash_on": "ip"
+    } ]
+  ],
+  [ "test_upstream_header",
+    [ "admin", "POST", "/upstreams", {
+      "name": "test_upstream_header",
+      "hash_on": "header",
+      "hash_on_header": "some-header"
+    } ],
+    [ 201, {
+      "name": "test_upstream_header",
+      "hash_on": "header",
+      "hash_on_header": "some-header"
+    } ]
+  ],
+  [ "test_upstream_cookie",
+    [ "admin", "POST", "/upstreams", {
+      "name": "test_upstream_cookie",
+      "hash_on": "cookie",
+      "hash_on_cookie": "some-cookie"
+    } ],
+    [ 201, {
+      "name": "test_upstream_cookie",
+      "hash_on": "cookie",
+      "hash_on_cookie": "some-cookie"
+    } ]
+  ]
+]

@@ -20,6 +20,11 @@
   [ "acl",
     [ "admin", "POST", "/consumers/acl_consumer/acls", { "group": "admin" } ],
     [ 201, { "group": "admin" } ]
+  ],
+
+  [ "acls is retrievable by group",
+    [ "admin", "GET", "/consumers/acl_consumer/acls/admin" ],
+    [ 200, { "group": "admin" } ]
   ]
 ]
 

@@ -1,0 +1,42 @@
+[
+  [ "test_upstream with hash_on none has round-robin algorithm after migrating",
+    [ "admin_2", "GET", "/upstreams/test_upstream_none" ],
+    [ 200, {
+      "name": "test_upstream_none",
+      "hash_on": "none",
+      "algorithm": "round-robin"
+    } ]
+  ],
+  [ "test_upstream with hash_on consumer has consistent-hashing algorithm after migrating",
+    [ "admin_2", "GET", "/upstreams/test_upstream_consumer" ],
+    [ 200, {
+      "name": "test_upstream_consumer",
+      "hash_on": "consumer",
+      "algorithm": "consistent-hashing"
+    } ]
+  ],
+  [ "test_upstream with hash_on ip has consistent-hashing algorithm after migrating",
+    [ "admin_2", "GET", "/upstreams/test_upstream_ip" ],
+    [ 200, {
+      "name": "test_upstream_ip",
+      "hash_on": "ip",
+      "algorithm": "consistent-hashing"
+    } ]
+  ],
+  [ "test_upstream with hash_on header has consistent-hashing algorithm after migrating",
+    [ "admin_2", "GET", "/upstreams/test_upstream_header" ],
+    [ 200, {
+      "name": "test_upstream_header",
+      "hash_on": "header",
+      "algorithm": "consistent-hashing"
+    } ]
+  ],
+  [ "test_upstream with hash_on cookie has consistent-hashing algorithm after migrating",
+    [ "admin_2", "GET", "/upstreams/test_upstream_cookie" ],
+    [ 200, {
+      "name": "test_upstream_cookie",
+      "hash_on": "cookie",
+      "algorithm": "consistent-hashing"
+    } ]
+  ]
+]
