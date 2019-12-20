@@ -18,7 +18,7 @@ env:
     - IMAGES_PATH=~/.gojira-images
     - GOJIRA_VERSION=v0.2.0
     - TEST_REPO=kong
-    - TAG_OR_BRANCH_TO=next
+    - TAG_OR_BRANCH_TO=feat/router-path-handling-migrations-3
     - UPATH_TO=2.0.0
   matrix:
     - TAG_OR_BRANCH_FROM=0.14.1
