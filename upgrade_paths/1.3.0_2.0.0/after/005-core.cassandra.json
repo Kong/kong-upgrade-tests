@@ -1,6 +1,0 @@
-[
-  [ "host_header column was added to upstreams",
-    [ "cql", "SELECT type FROM system_schema.columns WHERE keyspace_name = 'kong' AND table_name = 'upstreams' and column_name = 'host_header'" ],
-    [ 1, [ { "type": "text" } ] ]
-  ]
-]
