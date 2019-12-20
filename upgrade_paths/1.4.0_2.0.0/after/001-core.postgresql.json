@@ -1,0 +1,10 @@
+[
+  [ "run_on column was dropped from plugins",
+    [ "psql", "SELECT data_type FROM information_schema.COLUMNS WHERE TABLE_CATALOG = 'kong' AND TABLE_NAME = 'plugins' AND COLUMN_NAME = 'run_on'" ],
+    [ 1, [] ]
+  ],
+  [ "cluster_ca table does not exist",
+    [ "psql", "SELECT table_name FROM information_schema.TABLES WHERE TABLE_CATALOG = 'kong' AND TABLE_NAME = 'cluster_ca'" ],
+    [ 1, [] ]
+  ]
+]

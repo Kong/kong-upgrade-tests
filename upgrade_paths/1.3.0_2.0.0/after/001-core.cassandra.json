@@ -1,0 +1,24 @@
+[
+  [ "host_header column was added to upstreams",
+    [ "cql", "SELECT type FROM system_schema.columns WHERE keyspace_name = 'kong' AND table_name = 'upstreams' and column_name = 'host_header'" ],
+    [ 1, [ { "type": "text" } ] ]
+  ],
+  [ "run_on column was dropped from plugins",
+    [ "cql", "SELECT type FROM system_schema.columns WHERE keyspace_name = 'kong' AND table_name = 'plugins' and column_name = 'run_on'" ],
+    [ 0, {
+      "meta": {
+        "has_more_pages": false
+      },
+      "type": "ROWS"
+    } ]
+  ],
+  [ "cluster_ca table does not exist",
+    [ "cql", "SELECT table_name FROM system_schema.tables WHERE keyspace_name = 'kong' AND table_name = 'cluster_ca'" ],
+    [ 0, {
+      "meta": {
+        "has_more_pages": false
+      },
+      "type": "ROWS"
+    } ]
+  ]
+]

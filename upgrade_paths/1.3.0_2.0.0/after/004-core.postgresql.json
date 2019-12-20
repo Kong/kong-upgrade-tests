@@ -1,6 +1,0 @@
-[
-  [ "host_header column was added to upstreams",
-    [ "psql", "SELECT data_type FROM information_schema.COLUMNS WHERE TABLE_NAME = 'upstreams' AND COLUMN_NAME = 'host_header'" ],
-    [ 1, [ { "data_type": "text" } ] ]
-  ]
-]
