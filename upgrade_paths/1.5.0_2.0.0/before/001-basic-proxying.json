@@ -20,20 +20,20 @@
     } ]
   ],
   [ "test_service check",
-    [ "admin", "GET", "/services/#{test_service.id}" ],
+    [ "admin", "GET", "/services" ],
     [ 200, {
+      "data": [ {
         "name": "test_service",
         "host": "httpbin.org",
         "path": "/anything",
         "protocol": "https"
-      }
-    ]
+      } ]
+    } ]
   ],
   [ "test proxy works",
     [ "proxy", "GET", "/", "", { "Host": "test_service.example.com" } ],
     [ 200,
-      null,
-      { "Via": "kong/0.14.1" }
+      null
     ]
   ]
 ]
