@@ -1,13 +1,4 @@
 [
-  [ "run_on column was dropped from plugins",
-    [ "cql", "SELECT type FROM system_schema.columns WHERE keyspace_name = 'kong' AND table_name = 'plugins' and column_name = 'run_on'" ],
-    [ 0, {
-      "meta": {
-        "has_more_pages": false
-      },
-      "type": "ROWS"
-    } ]
-  ],
   [ "cluster_ca table does not exist",
     [ "cql", "SELECT table_name FROM system_schema.tables WHERE keyspace_name = 'kong' AND table_name = 'cluster_ca'" ],
     [ 0, {
