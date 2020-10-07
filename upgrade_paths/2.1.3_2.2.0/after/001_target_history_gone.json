@@ -1,0 +1,39 @@
+[
+  [ "get all active targets, still showing only 1 target",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets" ],
+    [ 200, {
+      "data": [
+        {
+          "target": "127.0.0.1:8000",
+          "id": "#{latest_target.id}",
+          "weight": 1
+        }
+      ]
+    }]
+  ],
+  [ "get all targets, returns only 2 targets, target1 with weight=1 and target2 with weight=0 (can't test because of order)",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets/all" ],
+    [ 200, {
+      "data": [
+        { "%target": "127.0.0.[1-2]:8000" },
+        { "%target": "127.0.0.[1-2]:8000" }
+      ]
+    }]
+  ],
+  [ "check initial_target doesn't exist any more",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets/#{initial_target.id}" ],
+    [ 404 ]
+  ],
+  [ "check updated_target doesn't exist any more",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets/#{updated_target.id}" ],
+    [ 404 ]
+  ],
+  [ "check target_to_be_deleted doesn't exist any more",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets/#{target_to_be_deleted.id}" ],
+    [ 404 ]
+  ],
+  [ "check deleted_target doesn't exist",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets/#{deleted_target.id}" ],
+    [ 404 ]
+  ]
+]

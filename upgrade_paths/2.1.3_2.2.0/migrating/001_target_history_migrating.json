@@ -1,0 +1,48 @@
+[
+  [ "check initial_target is still in new node while migrating",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets/#{initial_target.id}" ],
+    [ 200, {
+      "id": "#{initial_target.id}"
+    }]
+  ],
+  [ "check updated_target is still in new node while migrating",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets/#{updated_target.id}" ],
+    [ 200, {
+      "id": "#{updated_target.id}"
+    }]
+  ],
+  [ "check target_to_be_deleted is still in new node while migrating",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets/#{target_to_be_deleted.id}" ],
+    [ 200, {
+      "id": "#{target_to_be_deleted.id}"
+    }]
+  ],
+  [ "check deleted_target appears to be gone (but it is still in new node while migrating, see below)",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets/#{deleted_target.id}" ],
+    [ 404 ]
+  ],
+  [ "get all targets, showing all 5 targets, including deleted_target in new node while migrating",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets/all" ],
+    [ 200, {
+      "data": [
+        { "%target": "127.0.0.[1-2]:8000" },
+        { "%target": "127.0.0.[1-2]:8000" },
+        { "%target": "127.0.0.[1-2]:8000" },
+        { "%target": "127.0.0.[1-2]:8000" },
+        { "%target": "127.0.0.[1-2]:8000" }
+      ]
+    }]
+  ],
+  [ "get all active targets, showing only 1 target in new node while migrating",
+    [ "admin_2", "GET", "/upstreams/history_upstream.dev/targets" ],
+    [ 200, {
+      "data": [
+        {
+          "target": "127.0.0.1:8000",
+          "id": "#{latest_target.id}",
+          "weight": 1
+        }
+      ]
+    }]
+  ]
+]
