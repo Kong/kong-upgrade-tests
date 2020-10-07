@@ -1,0 +1,87 @@
+[
+  [ "history_upstream.dev",
+    [ "admin", "POST", "/upstreams", {
+      "name": "history_upstream.dev"
+    } ],
+    [ 201 ]
+  ],
+
+  [ "initial_target",
+    [ "admin", "POST", "/upstreams/history_upstream.dev/targets", {
+      "target": "127.0.0.1",
+      "weight": 100
+    } ],
+    [ 201 ]
+  ],
+  [ "target_to_be_deleted",
+    [ "admin", "POST", "/upstreams/history_upstream.dev/targets", {
+      "target": "127.0.0.2",
+      "weight": 100
+    } ],
+    [ 201 ]
+  ],
+  [ "deleted_target",
+    [ "admin", "PUT", "/upstreams/history_upstream.dev/targets/127.0.0.2:8000", {
+      "weight": 0
+    } ],
+    [ 200 ]
+  ],
+  [ "updated_target",
+    [ "admin", "PUT", "/upstreams/history_upstream.dev/targets/127.0.0.1:8000", {
+      "weight": 13
+    } ],
+    [ 200 ]
+  ],
+  [ "latest_target",
+    [ "admin", "PUT", "/upstreams/history_upstream.dev/targets/127.0.0.1:8000", {
+      "weight": 1
+    } ],
+    [ 200 ]
+  ],
+  [ "check initial_target is still there",
+    [ "admin", "GET", "/upstreams/history_upstream.dev/targets/#{initial_target.id}" ],
+    [ 200, {
+      "id": "#{initial_target.id}"
+    }]
+  ],
+  [ "check updated_target is still there",
+    [ "admin", "GET", "/upstreams/history_upstream.dev/targets/#{updated_target.id}" ],
+    [ 200, {
+      "id": "#{updated_target.id}"
+    }]
+  ],
+  [ "check target_to_be_deleted is still there",
+    [ "admin", "GET", "/upstreams/history_upstream.dev/targets/#{target_to_be_deleted.id}" ],
+    [ 200, {
+      "id": "#{target_to_be_deleted.id}"
+    }]
+  ],
+  [ "check deleted_target appears to be gone (but it is still there, see below)",
+    [ "admin", "GET", "/upstreams/history_upstream.dev/targets/#{deleted_target.id}" ],
+    [ 404 ]
+  ],
+  [ "get all targets, showing all 5 targets, including deleted_target (see response manually, order is not guaranteed)",
+    [ "admin", "GET", "/upstreams/history_upstream.dev/targets/all" ],
+    [ 200, {
+      "data": [
+        { "%target": "127.0.0.[1-2]:8000" },
+        { "%target": "127.0.0.[1-2]:8000" },
+        { "%target": "127.0.0.[1-2]:8000" },
+        { "%target": "127.0.0.[1-2]:8000" },
+        { "%target": "127.0.0.[1-2]:8000" }
+      ]
+    }]
+  ],
+  [ "get all active targets, showing only 1 target",
+    [ "admin", "GET", "/upstreams/history_upstream.dev/targets" ],
+    [ 200, {
+      "data": [
+        {
+          "target": "127.0.0.1:8000",
+          "id": "#{latest_target.id}",
+          "weight": 1
+        }
+      ]
+    }]
+  ]
+]
