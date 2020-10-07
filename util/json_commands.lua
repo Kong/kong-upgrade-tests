@@ -1,3 +1,4 @@
+setmetatable(_G, nil)
 require "luarocks.require"
 local cjson = require "cjson"
 local test_helpers = require "util.test_helpers"
