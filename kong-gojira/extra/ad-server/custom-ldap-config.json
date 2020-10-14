@@ -1,0 +1,1 @@
+{"anonymous":"","attribute":"CN","base_dn":"cn=users,dc=ldap,dc=mashape,dc=com","bind_dn":"cn=ophelia,cn=users,dc=ldap,dc=mashape,dc=com","ldap_password":"damng00dcoffEE","cache_ttl":2,"header_type":"Basic","keepalive":60000,"ldap_host":"test-ad-server","ldap_port":389,"start_tls":false,"timeout":10000,"verify_ldap_host":true}

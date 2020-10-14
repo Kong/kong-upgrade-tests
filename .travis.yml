@@ -16,7 +16,7 @@ env:
   global:
     - DOCKER_COMPOSE_VERSION=1.23.2
     - IMAGES_PATH=~/.gojira-images
-    - GOJIRA_VERSION=v0.2.0
+    - GOJIRA_VERSION=v0.3.0
     - TEST_REPO=kong
     - TAG_OR_BRANCH_TO=master
     - UPATH_TO=1.4.0

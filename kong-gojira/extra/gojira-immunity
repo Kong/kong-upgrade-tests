@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+KONG_BRAIN_IMMUNITY_IMAGE_NAME=${KONG_BRAIN_IMMUNITY_IMAGE_NAME:-kong-docker-kong-brain-internal-builds.bintray.io/kong-brain:2.0.0-alpha4}
+
+brain_setup() {
+  add_egg $(dirname ${BASH_SOURCE[0]})/immunity-compose.yml
+  export KONG_BRAIN_IMMUNITY_IMAGE_NAME
+  export KONG_PASSWORD=${KONG_PASSWORD:-handyshake}
+  export KONG_ADMIN_TOKEN=$KONG_PASSWORD
+  main "$@"
+}
+
+brain_setup "$@"

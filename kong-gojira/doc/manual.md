@@ -155,19 +155,20 @@ Creating kong-0c4151a3c047b3f5592cce0ad4afaaa6_kong_1  ... done
 ```
 
 There's now a container running under the fixed prefix `kong-0c4151a3c047b3f5592cce0ad4afaaa6`.
-Any gojira command that references this path will access it. It gets better by
-setting `GOJIRA_DETECT_LOCAL=1` on your environment. All `gojira` commands run
-from within a kong repository will assume a `-k` flag into it, making the
-following two commands equivalent:
+Any gojira command that references this path will access it.
+
+All `gojira` commands run from within a kong repository will assume a `-k` flag
+into it, making the following two commands equivalent:
 
 ```
 # reference a path by -k
 gojira up -k some/path/to/kong
 # run it from within a kong folder
-export GOJIRA_DETECT_LOCAL=1
 cd some/path/to/kong
 gojira up
 ```
+
+To disable this behavior, set `GOJIRA_DETECT_LOCAL=0`.
 
 That's the main gist of it. The following are examples of different usage
 patterns that are possible by using gojira.
@@ -251,17 +252,29 @@ $ gojira shell -k path/to/some/kong
 $ gojira down -k path/to/some/kong
 ```
 
-By turning on `GOJIRA_DETECT_LOCAL=1`, gojira will automatically detect when
-it runs within a kong repository. The previous would become
+Gojira will automatically detect when it runs within a kong repository. The
+previous would become. Disable this feature by setting `GOJIRA_DETECT_LOCAL=0`.
 
 ```
-$ export GOJIRA_DETECT_LOCAL=1
 $ cd path/to/some/kong
 $ gojira up
 $ gojira run some commands
 $ gojira shell
 $ gojira down
 ```
+
+### Kill Gojiras
+
+- `gojira nuke` will kill all gojira running containers.
+- `gojira nuke -f` will kill all gojira running containers AND remove
+the repos in `$GOJIRA_KONGS`.
+
+The `nuke` command proxies extra commands to the first `docker ps`,
+that allows extra filtering like `gojira nuke --filter name=sealy`.
+
+To remove all gojira related images, combine `gojira images` with the
+usual `docker rmi`: `docker rmi $(gojira images -q)`
+
 
 ### Using two gojiras with the same version
 
@@ -277,44 +290,35 @@ gojira run -p bar kong roar
 . gojira cd -p bar
 ```
 
-### link 2 gojiras to the same db
+### Using two gojiras with the same database
 
-| term1                                            | term2                                                                                                                       |
-|--------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `gojira up -t 0.34-1 -n network1`                | `gojira up -t master -n network1 --alone`                                                                                   |
-| `gojira run make dev -t 0.34-1 -n network1`      | `gojira run make dev -t master -n network1 --alone`                                                                             |
-|                                                  | `gojira run bin/kong migrations bootstrap -t master -n network1`                                                            |
-| `gojira run bin/kong start -t 0.34-1`            | `gojira run bin/kong start -t master`                                                                                       |
-|                                                  | `gojira shell -t master`                                                                                                    |
-|                                                  | `curl -i -X POST   --url http://localhost:8001/services/   --data 'name=example-service'   --data 'url=http://mockbin.org'` |
-| `gojira run curl http://localhost:8001/services` |                                                                                                                             |
+It's useful for testing migrations. The following will up two kongs on
+different versions using the same database and do a migration:
 
-### Run a migration from one version to another
+```bash
+# Start a node on 0.36-1
+gojira up -t 0.36-1 --network some-network
+gojira run -t 0.36-1 kong migrations bootstrap
+gojira run -t 0.36-1 kong start
 
-By using the following step, it's possible and easy to check a migration from
-a version to another:
-
-```
-gojira up -t 1.2.0 --network some-network
-gojira up -t 1.3.0 --network some-network --alone
-gojira shell -t 1.2.0
-$ kong migrations bootstrap
-$ kong start
-$ # Add some data maybe
-$ http POST :8001/services name=example host=mockbin.org
-$ http -f POST :8001/services/example/routes hosts=example.com
-$ # ...
-$ exit
-gojira shell -t 1.3.0
-$ # let's migrate the database from 1.2.0 to 1.3.0
-$ kong migrations up
-$ kong start
-$ http :8000/request/foo Host:example.com
+# Start a node on 1.3.0.2 on the same network without db
+gojira up -t 1.3.0.2 --network some-network --alone
+gojira run -t 1.3.0.2 kong migrations up
+gojira run -t 1.3.0.2 kong migrations finish
+gojira run -t 1.3.0.2 kong start
 ```
 
-### use a different starting image
+### Using kong release images with gojira
 
-- `gojira up -t 0.34-1 --image bintray.....`
+```bash
+# or set it with --image argument
+export GOJIRA_IMAGE=kong-docker-kong-enterprise-edition-docker.bintray.io/kong-enterprise-edition:1.5.0.0-alpine
+gojira up
+gojira shell
+kong roar
+kong migrations bootstrap
+kong start
+```
 
 ### Using snapshots to store the state of a running container
 
@@ -364,26 +368,12 @@ $ gojira snapshot? non-existent
 X $
 ```
 
-Thus, theoretically you can run the following and always get a container using
-the image you snapshotted, without having to run `make dev` again.
-```
-$ gojira up --image $(gojira snapshot?)
-$ gojira run kong roar
-```
+By default, gojira will load a snapshot if found. If you want to disable
+this behavior, set `GOJIRA_USE_SNAPSHOT=0`
 
-We hear you - This is neat! I do not want to type `make dev` again. Make this
-the default - and we got you covered. This feature is nifty, but comes with
-some compromises that might be non obvious, therefore it comes disabled by
-default. Even if enabled, it will not do anything if an `--image` is provided.
-
-All you need to do, is `export GOJIRA_USE_SNAPSHOT=1`
-
-The following will always try to use an snapshot if it is available. Notice
-how you can install more tools and overwrite the snapshot at any time.
+Notice how you can install more tools and overwrite the snapshot at any time.
 
 ```
-export GOJIRA_USE_SNAPSHOT=1
-
 gojira up
 gojira run make dev
 gojira snapshot
@@ -400,6 +390,23 @@ gojira run kong roar
 gojira run psql -U kong -h db
 ```
 
+#### Snapshot levels
+
+unnamed snapshots are created on two levels:
+ - base snapshot: depends only on the Dockerfile and hard dependencies
+   (luarocks, openssl, openresty).
+ - snapshot: depends on the base snapshot + kong rockspec file
+
+By having a base snapshot in hand, it's possible to bring up an environment
+that is more or less compatible with the desired one, and it's just missing
+an incremental `luarocks make` on the rockspec. When `GOJIRA_USE_SNAPSHOT` is
+enabled and no snapshot is found, it will bring up the base snapshot if
+available.
+
+Base snapshots also ease the installation of tooling on the images, since
+they will always be available on the base snapshot even when the level 2
+snapshot changed.
+
 Snapshots can be deleted by
 
 ```
@@ -413,6 +420,29 @@ Deleted: sha256:4a65afc276faae30bcf9c7e2f412f8282ad16fdeb4cfb47c62b28a7d1ec4d889
 Deleted: sha256:bbad8e16eab22ac4538f282b4a5ed63cd0f91f03b76ae1327f8318e9f3504522
 ```
 
+Base snapshots can be deleted by
+
+```
+$ gojira snapshot!!
+```
+
+### Gojira magic dev mode
+
+It might seem a bit pointless to run `make dev` every time you up a container.
+Gojira environments should be something we freely bring up, down and nuke, but
+it's troublesome to keep track of the state of the environment.
+
+By setting `GOJIRA_MAGIC_DEV=1`, gojira will run `make dev` every time
+after `gojira up`.
+
+Combined with `GOJIRA_USE_SNAPSHOT=1` it will save a base snapshot after the
+first `make dev`. After this, you can forget about typing
+`make dev` ever again. When something changes on the rockspec, it will bring
+up the base snapshot and the `make dev` will take much less time since it will
+be incremental.
+
+** this is an experimental feature ** report any issues on #gojira
+
 ### fallback to docker-compose
 
 - `gojira compose config  # useful for debugging`
@@ -420,7 +450,10 @@ Deleted: sha256:bbad8e16eab22ac4538f282b4a5ed63cd0f91f03b76ae1327f8318e9f3504522
 Note that `gojira compose run X` and `gojira run X` mean different
 things as docker-compose run will spawn a new container and gojira
 will effectively exec into kong service. More or less:
+
 `gojira compose exec kong top` == `gojira run top`
+
+`gojira compose exec db psql`  == `gojira run@db psql`
 
 ### plugin development
 
@@ -438,9 +471,17 @@ gojira shell
 ### Access database console
 
 ```
-gojira compose exec db psql -U kong    #Postgres
-gojira compose exec db cqlsh           #Cassandra
+gojira run@db psql -U kong      # Postgres
+gojira run@db cqlsh             # Cassandra
+```
 
+### Run an sql file in the db
+
+`/root/` is also shared by the database containers, so you keep your
+cassandra history and psql history.
+
+```
+gojira run@db psql -- -U kong -d kong_tests -f'/root/foo.sql'
 ```
 
 ### Remove all gojira images (including snapshots)
@@ -452,9 +493,10 @@ docker rmi $(gojira images -q)
 
 ### Run both cassandra and postgres tests on the same run
 
-The solution for this is to spin up a cassandra container separately on a
-joined network. Note that for full test coverage it's recommended to
-run specs normally setting `KONG_TEST_DATABASE` to the specific target.
+The solution for this is to spin up a cassandra container separately
+on a joined network. Note that for full test coverage it's recommended
+to run specs normally setting `KONG_TEST_DATABASE` to the specific
+target.
 
 ```
 docker run --name gojira_cassandra --network foobar -d cassandra:3.9
@@ -463,4 +505,76 @@ gojira shell
 $ unset KONG_TEST_DATABASE
 $ bin/busted -o gtest some/tests
 ```
+### Run a Full blown Kong-ee with manager and RBAC (kong-enterprise-environment)
 
+```
+export GOJIRA_IMAGE=kong-docker-kong-enterprise-edition-docker.bintray.io/kong-enterprise-edition:1.5.0.0-alpine
+gojira up -pp 8000-8010:8000-8010
+gojira shell
+export KONG_PASSWORD=secret
+export KONG_ADMIN_GUI_URL=http://localhost:8002
+export KONG_ADMIN_GUI_SESSION_CONF='{"secret":"Y29vbGJlYW5z","storage":"kong","cookie_secure":false}'
+export KONG_ADMIN_GUI_AUTH=basic-auth
+export KONG_ENFORCE_RBAC=on
+kong migrations bootstrap
+kong start
+```
+
+### Run a kong cluster
+
+A kong cluster is basically multiple kong versions using the same database.
+Remember to use snapshots to not waste time. The following example starts a
+kong cluster of 5 nodes.
+
+```bash
+# First let's make sure we have a snapshot for the node we want to bring up
+# skip this step if you know that you have an snapshot
+gojira up --alone
+gojira run make dev
+gojira snapshot
+gojira down
+
+# Now, start gojira with 5 kong nodes
+gojira up --scale kong=5
+
+# Run migrations on the first node
+gojira run kong migrations bootstrap
+# Start kong in all nodes
+gojira run --cluster kong start
+```
+
+Note that the following do more or less the same:
+
+```bash
+gojira up --scale kong=5
+# and
+gojira up
+gojira compose scale kong=5
+```
+
+> For the time being, we have no mode for load balancing kong requests across
+  the cluster.
+
+#### Run a command on a particular node (ie: 3)
+
+```bash
+gojira run --index 3 foobar
+```
+
+#### Run a shell on a particular node (ie: 3)
+
+```bash
+gojira shell --index 3
+```
+
+
+#### Scale any other service
+
+```bash
+gojira up --scale db=9000 --scale kong=3000
+
+# Alternatively
+gojira up
+gojira compose scale db=9000
+gojira compose scale kong=3000
+```

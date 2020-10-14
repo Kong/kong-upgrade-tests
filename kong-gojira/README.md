@@ -1,3 +1,9 @@
+This repo has been archived, gojira now lives under https://github.com/kong/gojira.
+
+Learn how to enable enterprise features at https://github.com/kong/gojira-enterprise.
+
+Thanks for all the fish!
+
 ```
                             _,-}}-._
                            /\   }  /\
@@ -44,9 +50,16 @@ Commands:
 
   build         build a docker image with the specified VERSIONS
 
-  run           run a command on a running container
+  run           run a command on a running kong container.
+                Use with --cluster to run the command across all kong nodes.
+                Use with --index 4 to run the command on node #4.
 
-  shell         get a shell on a running container
+  run@[serv]    run a command on a specified service.
+                example: 'gojira run@db psql -U kong'
+
+  shell         get a shell on a running kong container.
+
+  shell@[serv]  get a shell on a specified service.
 
   cd            cd into a kong-ee prefix repo
 
@@ -58,6 +71,8 @@ Commands:
 
   ls            list stored prefixes in $GOJIRA_KONGS
 
+  lay           make gojira lay an egg
+
   snapshot      make a snapshot of a running gojira
 
   compose       alias for docker-compose, try: gojira compose help
@@ -66,7 +81,7 @@ Commands:
 
   logs          follow container logs
 
-  nuke          remove all running gojiras
+  nuke [-f]     remove all running gojiras. -f for removing all files
 
 ```
 
@@ -144,9 +159,9 @@ Path to the shared home between gojiras
 
 ### GOJIRA_IMAGE
 
-Instead of building an image automatically, force this image to be used. [Docs]
+Instead of building a development image, force this image to be used. [Docs]
 
-[Docs]: doc/manual.md
+[Docs]: doc/manual.md#using-kong-release-images-with-gojira
 
 ### GOJIRA_GIT_HTTPS
 
@@ -157,7 +172,7 @@ Use https instead of ssh for cloning `GOJIRA_REPO`
 
 ### GOJIRA_DETECT_LOCAL
 
-> default: `0` (off)
+> default: `1` (on)
 
 Detects if the current path is a kong repository, providing an automatic `-k`
 flag. [Docs]
@@ -173,11 +188,36 @@ prefix based on the md5 of the path. [Docs]
 
 [Docs]: doc/manual.md#detect-kong-in-path
 
-
 ### GOJIRA_USE_SNAPSHOT
 
-> default: `0` (off)
+> default: `1` (on)
 
 Try to use an automatic snapshot when available. [Docs]
 
 [Docs]: doc/manual.md#using-snapshots-to-store-the-state-of-a-running-container
+
+### GOJIRA_MAGIC_DEV
+
+> default: `0` (off)
+
+Runs `make dev` on up when the environment needs it.
+
+Together with `GOJIRA_USE_SNAPSHOT`, it will record a snapshot after so the
+next up can re-use that snapshot. On luarocks change, it will bring up a
+compatible base, and run 'make dev' again, which should be faster since it
+will be incremental, but will not record a snapshot to reduce disk usage.
+
+Read more about `GOJIRA_MAGIC_DEV` on the [manual] section.
+
+[manual]: doc/manual.md#gojira-magic-dev-mode
+
+### GOJIRA_KONG_PATH
+
+Set this to a **full** kong path so gojira always references it no matter what
+This efectively hardcodes all the gojira magic to always, always use this path,
+without having to reference it by `-k`. ie
+
+```bash
+export GOJIRA_KONG_PATH=full/path/to/some/kong
+```
+

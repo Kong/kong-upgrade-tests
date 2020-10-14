@@ -1,51 +1,95 @@
 #!/usr/bin/env bash
 
 GOJIRA=$(basename $0)
-GOJIRA_VERSION=0.2.6
 GOJIRA_PATH=$(dirname $(realpath $0))
 DOCKER_PATH=$GOJIRA_PATH/docker
 DOCKER_FILE=$DOCKER_PATH/Dockerfile
 COMPOSE_FILE=$DOCKER_PATH/docker-compose.yml.sh
 
-# Defaults
+# Add gojira extras to env path
+PATH=$PATH:$GOJIRA_PATH/extra
+
+GOJIRA_VERSION=0.3.0
+GOJIRA_ROARS=(
+  "RAWR" "urhghh" "tasty vagrant" "..." "nomnomnom" "beer"
+  "\e[1m\e[31ma \e[33mw \e[93me \e[32ms \e[34mo \e[96mm \e[35me \e[0m"
+  "\e[38;5;206m❤ \e[0m" "ゴジラ" "Fast Track" "coming to a theater near you"
+  "you're breathtaking" "Monster Zero" "Let Me Fight" "Das Governance"
+  "Ho-ho-ho!" "Fail fast and furiously" "King of Monsters"
+  "the Houdini of the Seas" "From the Core" "a Memento of the Past"
+)
+GOJIRA_BOOMS=(
+  "BOOM" "GOT MILK" "U MAD" "LEAVE ONLY BUBBLES"
+)
+
+GOJIRA_EGGS=()
+
+globals() {
+# Defaults and overloading
 GOJIRA_KONGS=${GOJIRA_KONGS:-~/.gojira-kongs}
 GOJIRA_HOME=${GOJIRA_HOME:-$GOJIRA_KONGS/.gojira-home/}
-GOJIRA_DATABASE=postgres
+GOJIRA_DATABASE=${GOJIRA_DATABASE:-postgres}
 GOJIRA_REPO=${GOJIRA_REPO:-kong-ee}
 GOJIRA_TAG=${GOJIRA_TAG:-master}
 GOJIRA_GIT_HTTPS=${GOJIRA_GIT_HTTPS:-0}
-GOJIRA_USE_SNAPSHOT=${GOJIRA_USE_SNAPSHOT:-0}
 GOJIRA_REDIS_MODE=""
-GOJIRA_DETECT_LOCAL=${GOJIRA_DETECT_LOCAL:-0}
+GOJIRA_CLUSTER_INDEX=${GOJIRA_CLUSTER_INDEX:-1}
+# Run gojira in "dev" mode or in "image" mode
+GOJIRA_MODE=${GOJIRA_MODE:-dev}
+GOJIRA_TARGET=${GOJIRA_TARGET:-kong}
+
+# Feature flags. Use the new cool stuff by default. Set it off to the ancient
+# one if it does not work for you
+GOJIRA_USE_SNAPSHOT=${GOJIRA_USE_SNAPSHOT:-1}
+GOJIRA_DETECT_LOCAL=${GOJIRA_DETECT_LOCAL:-1}
 GOJIRA_PIN_LOCAL_TAG=${GOJIRA_PIN_LOCAL_TAG:-1}
+GOJIRA_MAGIC_DEV=${GOJIRA_MAGIC_DEV:-0}
 
 _EXTRA_ARGS=()
 _GOJIRA_VOLUMES=()
 _GOJIRA_PORTS=()
+_GOJIRA_ENVS=()
 
 unset FORCE
 unset PREFIX
 unset EXTRA_ARGS
 
-unset GOJIRA_KONG_PATH
-unset GOJIRA_LOC_PATH
+# Accept outside GOJIRA_KONG_PATH hardcoded
+if [[ -n $GOJIRA_KONG_PATH ]]; then
+  GOJIRA_LOC_PATH=1
+else
+  unset GOJIRA_KONG_PATH
+  unset GOJIRA_LOC_PATH
+fi
+
 unset GOJIRA_SNAPSHOT
+unset GOJIRA_SNAPSHOT_LEVEL
 unset GOJIRA_HOSTNAME
 unset GOJIRA_VOLUMES
 unset GOJIRA_PORTS
+unset GOJIRA_ENVS
 unset GOJIRA_TAINTED_LOCAL
 
 unset _RAW_INPUT
+}
 
 function warn() {
   >&2 \echo -en "\033[1;33m"
-  >&2 echo "WARNING: $@"
+  >&2 echo "WARNING: $*"
   >&2 \echo -en "\033[0m"
 }
 
 function err {
-  >&2 echo $@
+  [[ $* =~ ^(\[.*\])(.*) ]] \
+    && >&2 echo -e "\033[1;31m${BASH_REMATCH[1]}\033[1;0m${BASH_REMATCH[2]}" \
+    || >&2 echo -e "$*"
   exit 1
+}
+
+function inf {
+  [[ $* =~ ^(\[.*\])(.*) ]] \
+    && >&2 echo -e "\033[1;34m${BASH_REMATCH[1]}\033[1;0m${BASH_REMATCH[2]}" \
+    || >&2 echo -e "$*"
 }
 
 function is_kong_repo {
@@ -61,20 +105,25 @@ function validate_arguments {
     # adding another "db" service (because we didn't pass --alone).
     # That will make dns requests to "db" to roundrobin between the
     # two, and it's probably not what we want.
-    [ -n "$GOJIRA_NETWORK" ] &&
+    [[ "$ACTION" == "up" ]] && [ -n "$GOJIRA_NETWORK" ] &&
         [ -n "$GOJIRA_DATABASE" ] &&
         docker network inspect $GOJIRA_NETWORK &> /dev/null &&
-        docker network inspect $GOJIRA_NETWORK |
-            jq '.[0].Containers[].Name' |
-            grep '_db_' 1>/dev/null &&
+        docker network inspect $GOJIRA_NETWORK | grep '_db_' 1> /dev/null &&
         warn "Creating a db in a network with db already.
          This might cause to round robin requests to db to multiple dbs. Try --alone flag"
 
-    # There's an unrecognized arg that contains a slash (likely to be
-    # a branch) but the tag that gojira is building is still master.
-    [[ $GOJIRA_TAG == "master" ]] &&
-        echo $EXTRA_ARGS | grep -q '/' &&
-        warn "probably forgot the -t flag. Building master"
+  [[ $GOJIRA_MODE == "image" ]] && [[ -z $GOJIRA_IMAGE ]] && \
+    err "To run kong images with gojira you need to specify an image: " \
+        "using --image <image name> or setting \$GOJIRA_IMAGE"
+
+  # Disable the fancy stuff is GOJIRA_IMAGE is pre-set
+  if [[ -n $GOJIRA_IMAGE ]]; then
+    GOJIRA_MAGIC_DEV=0
+    GOJIRA_DETECT_LOCAL=0
+    if [[ -z $GOJIRA_TAINTED_LOCAL ]]; then
+      GOJIRA_MODE="image"
+    fi
+  fi
 }
 
 function parse_args {
@@ -118,8 +167,17 @@ function parse_args {
         _GOJIRA_VOLUMES+=("$2")
         shift
         ;;
+      -e|--env)
+        _GOJIRA_ENVS+=("$2")
+        shift
+        ;;
+      --postgres)
+        GOJIRA_DATABASE=${GOJIRA_DATABASE:+postgres}
+        KONG_DATABASE=postgres
+        ;;
       --cassandra)
-        GOJIRA_DATABASE=cassandra
+        GOJIRA_DATABASE=${GOJIRA_DATABASE:+cassandra}
+        KONG_DATABASE=cassandra
         ;;
       --alone)
         GOJIRA_DATABASE=
@@ -147,6 +205,13 @@ function parse_args {
       --git-https)
         GOJIRA_GIT_HTTPS=1
         ;;
+      --cluster)
+        GOJIRA_RUN_CLUSTER=1
+        ;;
+      --index)
+        GOJIRA_CLUSTER_INDEX=$2
+        shift
+        ;;
       -)
         _EXTRA_ARGS+=("$(cat $2)")
         _RAW_INPUT=1
@@ -167,6 +232,7 @@ function parse_args {
   EXTRA_ARGS="${_EXTRA_ARGS[@]}"
   GOJIRA_PORTS="${_GOJIRA_PORTS[@]}"
   GOJIRA_VOLUMES="${_GOJIRA_VOLUMES[@]}"
+  GOJIRA_ENVS="${_GOJIRA_ENVS[@]}"
 
   validate_arguments
 
@@ -179,32 +245,40 @@ function parse_args {
     fi
   fi
 
-  # kong path supplied, override repo / tag
-  if [[ -n "$GOJIRA_KONG_PATH" ]]; then
-    GOJIRA_REPO=$(basename $GOJIRA_KONG_PATH)
+  local components=()
+
+  if [[ -n $PREFIX ]]; then
+    components+=("$PREFIX")
+  fi
+
+  if [[ $GOJIRA_MODE == "image" ]]; then
+    components+=("$(basename "$GOJIRA_IMAGE")")
+  elif [[ -n "$GOJIRA_KONG_PATH" ]]; then
+    components+=("$(basename $GOJIRA_KONG_PATH)")
     # New behavior, always use the same tag for a local kong path
     if [[ "$GOJIRA_PIN_LOCAL_TAG" == 1 ]] ; then
       # For the time being, use the path to identify this gojira.
       # Caveat: if you move or rename the folder, it will generate a new one
-      GOJIRA_TAG=$(echo "$GOJIRA_KONG_PATH" | md5)
+      # 9 characters is enough
+      components+=("$(echo "$GOJIRA_KONG_PATH" | sha1sum | awk '{print $1}' | cut -c1-9)")
     else
       # Old behavior. Get tag from repo
       pushd $GOJIRA_KONG_PATH
-        GOJIRA_TAG=$(git rev-parse --abbrev-ref HEAD)
+        components+=("$(git rev-parse --abbrev-ref HEAD)")
       popd
     fi
-  fi
-
-  if [ -n "$PREFIX" ]; then
-    PREFIX=$PREFIX-$GOJIRA_REPO-$GOJIRA_TAG
   else
-    PREFIX=$GOJIRA_REPO-$GOJIRA_TAG
+    components+=("$GOJIRA_REPO")
+    components+=("$GOJIRA_TAG")
   fi
 
+  PREFIX=$(IFS="-" ; echo "${components[*]}")
   # Allowed docker image characters / compose container naming
   PREFIX=$(echo $PREFIX | sed "s:[^a-zA-Z0-9_.-]:-:g")
 
-  GOJIRA_KONG_PATH=${GOJIRA_KONG_PATH:-$GOJIRA_KONGS/$PREFIX}
+  if [[ $GOJIRA_MODE != "image" ]]; then
+    GOJIRA_KONG_PATH=${GOJIRA_KONG_PATH:-$GOJIRA_KONGS/$PREFIX}
+  fi
 }
 
 function get_envs {
@@ -213,16 +287,21 @@ function get_envs {
   export GOJIRA_NETWORK
   export GOJIRA_PORTS
   export GOJIRA_VOLUMES
+  export GOJIRA_ENVS
   export GOJIRA_DATABASE
+  export KONG_DATABASE
   export GOJIRA_REDIS_MODE
   export DOCKER_CTX=$DOCKER_PATH
   export GOJIRA_HOSTNAME
   export GOJIRA_HOME
   export GOJIRA_PREFIX=$PREFIX
+  export GOJIRA_TARGET
 }
 
 
 function create_kong {
+  [[ $GOJIRA_MODE == "image" ]] && return
+
   mkdir -p $GOJIRA_KONGS
   pushd $GOJIRA_KONGS
     local $remote
@@ -235,22 +314,30 @@ function create_kong {
   popd
 }
 
-
 function rawr {
-  ROARS=(
-    "RAWR" "urhghh" "tasty vagrant" "..." "nomnomnom" "beer"
-    "\e[1m\e[31ma \e[33mw \e[93me \e[32ms \e[34mo \e[96mm \e[35me \e[0m"
-    "\e[38;5;206m❤ \e[0m" "ゴジラ" "Fast Track" "coming to a theater near you"
-    "you're breathtaking" "Monster Zero" "Let Me Fight"
-  )
-  echo -e ${ROARS[$RANDOM % ${#ROARS[@]}]}
+  echo -e ${GOJIRA_ROARS[$RANDOM % ${#GOJIRA_ROARS[@]}]}
 }
 
+function boom {
+  echo -e ${GOJIRA_BOOMS[$RANDOM % ${#GOJIRA_BOOMS[@]}]}
+}
 
 function roar {
-cat << EOF
+  if [[ $(date +%-m) -eq 12 ]]; then
+    cat << EOF
+   * .    .   *   ___   .    +    .
+ .     .   +    /  /  \\   .   .
+  + .          / /| - - |         *
+       *   .   * | - - - |   *   .
+   +     .      |---------|   .  +
+EOF
+ else
+    cat << EOF
                  _,-}}-._
                 /\   }  /\\
+EOF
+  fi
+  cat << EOF
                _|(O\\_ _/O)
              _|/  (__''__)
            _|\/    WVVVVW    $(rawr)!
@@ -264,11 +351,10 @@ cat << EOF
 EOF
 }
 
+
 function booom {
 cat << EOF
-
-
-
+       $(boom)?
 
     \         .  ./
   \      .:";'.:.."   /
@@ -299,6 +385,7 @@ Options:
   -r,  --repo           repo to clone kong from
   -pp, --port           expose a port for a kong container
   -v,  --volume         add a volume to kong container
+  -e,  --env            add environment variable to kon container
   --image               image to use for kong
   --cassandra           use cassandra
   --alone               do not spin up any db
@@ -319,9 +406,17 @@ Commands:
 
   build         build a docker image with the specified VERSIONS
 
-  run           run a command on a running container
+  run           run a command on a running kong container.
+                Use with --cluster to run the command across all kong nodes.
+                Use with --index 4 to run the command on node #4.
 
-  shell         get a shell on a running container
+  run@[s]       run a command on a specified service s.
+                example: 'gojira run@db psql -U kong'
+
+  shell         get a shell on a running kong container.
+
+  shell@[s]     get a shell on a specified service s.
+                example: 'gojira shell@db'
 
   cd            cd into a kong-ee prefix repo
 
@@ -332,6 +427,8 @@ Commands:
   ps            list running prefixes
 
   ls            list stored prefixes in \$GOJIRA_KONGS
+
+  lay           make gojira lay an egg
 
   snapshot      make a snapshot of a running gojira
 
@@ -348,6 +445,8 @@ EOF
 
 
 function image_name {
+  if [[ -n $GOJIRA_IMAGE ]]; then return; fi
+
   # No supplied dependency versions
   if [[ -z $LUAROCKS || -z $OPENSSL || -z $OPENRESTY ]]; then
     # No supplied local kong path and kong prefix does not exist
@@ -364,14 +463,14 @@ function image_name {
     OPENRESTY=${OPENRESTY:-$(req_find $req_file RESTY_VERSION)}
     LUAROCKS=${LUAROCKS:-$(req_find $req_file RESTY_LUAROCKS_VERSION)}
     OPENSSL=${OPENSSL:-$(req_find $req_file RESTY_OPENSSL_VERSION)}
-    OPENRESTY_PATCHES=${OPENRESTY_PATCHES:-$(req_find $req_file OPENRESTY_PATCHES)}
+    KONG_NGX_MODULE=${KONG_NGX_MODULE:-$(req_find $req_file KONG_NGINX_MODULE_BRANCH)}
+    KONG_BUILD_TOOLS=${KONG_BUILD_TOOLS_BRANCH:-$(req_find $req_file KONG_BUILD_TOOLS_BRANCH)}
   fi
 
   if [[ -f $yaml_file ]]; then
     OPENRESTY=${OPENRESTY:-$(yaml_find $yaml_file OPENRESTY)}
     LUAROCKS=${LUAROCKS:-$(yaml_find $yaml_file LUAROCKS)}
     OPENSSL=${OPENSSL:-$(yaml_find $yaml_file OPENSSL)}
-    OPENRESTY_PATCHES=${OPENRESTY_PATCHES:-$(yaml_find $yaml_file OPENRESTY_PATCHES)}
   fi
 
   if [[ -z $LUAROCKS || -z $OPENSSL || -z $OPENRESTY ]]; then
@@ -380,20 +479,15 @@ function image_name {
         "Specify versions as LUAROCKS, OPENSSL, and OPENRESTY envs"
   fi
 
-  if [[ -z $OPENRESTY_PATCHES ]]; then
-    OPENRESTY_PATCHES=master
-  fi
-
-  if [[ -z $LUAROCKS || -z $OPENSSL || -z $OPENRESTY ]]; then
-    err "${GOJIRA}: Could not guess version dependencies in" \
-        "$travis_yaml. Specify versions as LUAROCKS, OPENSSL, and "\
-        "OPENRESTY envs"
-  fi
+  KONG_NGX_MODULE=${KONG_NGX_MODULE:-master}
+  KONG_BUILD_TOOLS=${KONG_BUILD_TOOLS:-master}
 
   local components=(
     "luarocks-$LUAROCKS"
-    "openresty-${OPENRESTY}_${OPENRESTY_PATCHES}"
+    "openresty-${OPENRESTY}"
     "openssl-$OPENSSL"
+    "knm-$KONG_NGX_MODULE"
+    "kbt-$KONG_BUILD_TOOLS"
   )
 
   GOJIRA_IMAGE=gojira:$(IFS="-" ; echo "${components[*]}")
@@ -407,7 +501,8 @@ function build {
     "--build-arg LUAROCKS=$LUAROCKS"
     "--build-arg OPENSSL=$OPENSSL"
     "--build-arg OPENRESTY=$OPENRESTY"
-    "--build-arg OPENRESTY_PATCHES=$OPENRESTY_PATCHES"
+    "--build-arg KONG_NGX_MODULE=$KONG_NGX_MODULE"
+    "--build-arg KONG_BUILD_TOOLS=$KONG_BUILD_TOOLS"
   )
 
   >&2 echo "Building $GOJIRA_IMAGE"
@@ -416,8 +511,8 @@ function build {
   >&2 echo "=========================="
   >&2 echo " * OpenSSL:     $OPENSSL  "
   >&2 echo " * OpenResty:   $OPENRESTY"
-  >&2 echo "   + patches:   $OPENRESTY_PATCHES"
   >&2 echo " * LuaRocks:    $LUAROCKS "
+  >&2 echo " * Kong BT:     $KONG_BUILD_TOOLS"
   >&2 echo "=========================="
   >&2 echo ""
 
@@ -435,9 +530,50 @@ function req_find {
 }
 
 
+function executable {
+  # it's a file
+  if [[ -f $1 ]]; then
+    # can be executed
+    if [[ -x $1 ]]; then
+      return 0
+    else
+      return 1
+    fi
+  # It's something we can execute
+  elif hash $1; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+
 function p_compose {
+  local res
   get_envs
-  docker-compose -f <($COMPOSE_FILE) -p $PREFIX "$@"
+
+  local flags=()
+
+  local tmps=()
+
+  for egg in "${GOJIRA_EGGS[@]}"; do
+    # Have not found an alternative to this that does not involve a potential
+    # dangerous eval
+    if executable $egg; then
+      tfile=$(mktemp /tmp/gojira-egg.yml.XXXXXXXXX)
+      $egg > $tfile
+      tmps+=("$tfile")
+      flags+=("-f $tfile")
+    else
+      flags+=("-f $egg")
+    fi
+  done
+
+  docker-compose -f <($COMPOSE_FILE) ${flags[*]} -p $PREFIX "$@"
+  res=$?
+
+  rm -f "${tmps[@]}"
+  return $res
 }
 
 
@@ -458,11 +594,52 @@ function snapshot_image_name {
   image_name
   local sha
   local base_sha=$(query_sha $GOJIRA_IMAGE)
-  pushd $GOJIRA_KONG_PATH
-    sha=$(git hash-object kong-*.rockspec)
-  popd
-  sha=$(echo $base_sha:$sha | sha1sum | awk '{printf $1}')
-  GOJIRA_SNAPSHOT=gojira:snap-$sha
+
+  GOJIRA_BASE_SNAPSHOT=gojira:base-snap-$base_sha
+
+  if [[ -n $GOJIRA_KONG_PATH ]]; then
+    pushd $GOJIRA_KONG_PATH
+      sha=$(git hash-object kong-*.rockspec)
+    popd
+    sha=$(echo $base_sha:$sha | sha1sum | awk '{printf $1}')
+    GOJIRA_SNAPSHOT=gojira:snap-$sha
+  fi
+}
+
+
+function magic_dev {
+  if [[ $GOJIRA_MODE != "dev" ]]; then return; fi
+
+  # lvl 0: no snapshot
+  if [[ $GOJIRA_SNAPSHOT_LEVEL -lt 2 ]]; then
+    inf "[magic dev] running 'make dev'"
+    run_command $GOJIRA_TARGET 1 "make dev"
+    [[ $? == 0 ]] || err "[magic dev] failed running 'make dev'"
+  fi
+
+  if [[ $GOJIRA_USE_SNAPSHOT == 1 ]]; then
+    # Only snapshot if snapshot level was 0 to not pile up snapshots
+    if [[ $GOJIRA_SNAPSHOT_LEVEL == 0 ]]; then
+      inf "[magic dev] snap! snap!"
+      snapshot
+    fi
+  fi
+}
+
+
+function set_snapshot_image_name {
+  # lvl 2: good snapshot
+  # lvl 1: base snapshot only
+  # lvl 0: no snapshot
+  if [[ ! -z $(query_image $GOJIRA_SNAPSHOT) ]]; then
+    GOJIRA_IMAGE=$GOJIRA_SNAPSHOT
+    GOJIRA_SNAPSHOT_LEVEL=2
+  elif [[ ! -z $(query_image $GOJIRA_BASE_SNAPSHOT) ]]; then
+    GOJIRA_IMAGE=$GOJIRA_BASE_SNAPSHOT
+    GOJIRA_SNAPSHOT_LEVEL=1
+  else
+    GOJIRA_SNAPSHOT_LEVEL=0
+  fi
 }
 
 
@@ -473,8 +650,66 @@ function setup {
   # so we can create it from here.
 }
 
+function snapshot {
+  local c_id=$(p_compose ps -q $GOJIRA_TARGET)
+  if [[ -n $GOJIRA_BASE_SNAPSHOT ]]; then
+    docker commit $c_id $GOJIRA_BASE_SNAPSHOT || exit 1
+    >&2 echo "Created base snapshot: $GOJIRA_BASE_SNAPSHOT"
+  fi
+  if [[ -n $GOJIRA_SNAPSHOT ]]; then
+    docker commit $c_id $GOJIRA_SNAPSHOT || exit 1
+    >&2 echo "Created snapshot: $GOJIRA_SNAPSHOT"
+  fi
+}
+
+function run_command {
+  local where=$1
+  # Default node is 1
+  local nodes=${2:-1}
+  local args=$3
+
+  if [[ -z $args ]]; then
+    if [[ ! -z $_RAW_INPUT ]]; then
+      args=$EXTRA_ARGS
+    else
+      # https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Shell-Parameter-Expansion
+      args=${_EXTRA_ARGS[@]@Q}
+    fi
+  fi
+
+  if [[ -n $GOJIRA_RUN_CLUSTER ]]; then
+    nodes=$(p_compose ps | awk '{ print $1 }' | grep -c "${where}_[0-9]*$")
+    nodes=$(seq 1 "$nodes")
+  fi
+
+  local res=0
+  for i in $nodes; do
+    if [[ -n $GOJIRA_RUN_CLUSTER ]] || [[ $2 != 1 ]]; then
+      >&2 echo -en "\033[1;34m[${where}_$i]\033[00m "
+    fi
+
+    if [[ -t 1 ]]; then
+      p_compose exec --index "$i" "$where" sh -l -i -c "$args"
+    else
+      p_compose exec --index "$i" -T "$where" sh -l -c "$args"
+    fi
+
+    # Accumulate exit codes into res
+    res=$((res + $?))
+  done
+
+  # Return accumulated exit code :) > 0 --> error
+  return $res
+}
+
+add_egg() {
+  GOJIRA_EGGS+=("$@")
+}
 
 main() {
+
+  globals
+
   parse_args "$@"
   setup
 
@@ -484,25 +719,37 @@ main() {
     # with no auto deps, most probably
     if [[ ! -d "$GOJIRA_KONG_PATH" ]]; then create_kong; fi
 
-    if [[ -z $GOJIRA_IMAGE ]] && [[ "$GOJIRA_USE_SNAPSHOT" == 1 ]]; then
-      build
-      snapshot_image_name
-      if [[ ! -z $(query_image $GOJIRA_SNAPSHOT) ]]; then
-        GOJIRA_IMAGE=$GOJIRA_SNAPSHOT
-      fi
-    fi
-
     if [[ -z $GOJIRA_IMAGE ]]; then
       build || exit 1
     fi
-    p_compose up -d
+
+    if [[ "$GOJIRA_USE_SNAPSHOT" == 1 ]]; then
+      snapshot_image_name
+      set_snapshot_image_name
+
+      # Bring base image up to date man!
+      [[ "$GOJIRA_SNAPSHOT_LEVEL" == 1 ]] &&
+        warn "Your snapshot is not up to date, bringing up your latest" \
+             "compatible base, but remember to run 'make dev'!"
+    fi
+
+    p_compose up -d $EXTRA_ARGS || exit 1
+
+    if [[ $GOJIRA_MAGIC_DEV == 1 ]]; then
+      magic_dev
+    fi
     ;;
   down)
     p_compose kill
     p_compose down -v
     ;;
   shell)
-    p_compose exec kong bash -l -i
+    p_compose exec --index $GOJIRA_CLUSTER_INDEX $GOJIRA_TARGET gosh -l -i
+    ;;
+  shell@*)
+    # remove shell@, anchored at the start
+    local where=${ACTION/#shell@/}
+    p_compose exec --index $GOJIRA_CLUSTER_INDEX $where sh -l -i
     ;;
   build)
     build
@@ -512,19 +759,13 @@ main() {
     echo $GOJIRA_KONG_PATH
     cd $GOJIRA_KONG_PATH 2> /dev/null
     ;;
+  run@*)
+    # remove run@, anchored at the start
+    local where=${ACTION/#run@/}
+    run_command $where $GOJIRA_CLUSTER_INDEX
+    ;;
   run)
-    local args
-    if [[ ! -z $_RAW_INPUT ]]; then
-      args=$EXTRA_ARGS
-    else
-      # https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Shell-Parameter-Expansion
-      args=${_EXTRA_ARGS[@]@Q}
-    fi
-    if [[ -t 1 ]]; then
-      p_compose exec kong bash -l -i -c "$args"
-    else
-      p_compose exec -T kong bash -l -c "$args"
-    fi
+    run_command $GOJIRA_TARGET $GOJIRA_CLUSTER_INDEX
     ;;
   images)
     docker images --filter=reference='gojira*' $EXTRA_ARGS
@@ -549,22 +790,32 @@ main() {
     ;;
   compose)
     image_name
+    if [[ "$GOJIRA_USE_SNAPSHOT" == 1 ]]; then
+      snapshot_image_name
+      set_snapshot_image_name
+    fi
     p_compose $EXTRA_ARGS
     ;;
   snapshot)
     snapshot_image_name $EXTRA_ARGS
-    local cmd='cat /proc/self/cgroup | head -1 | sed "s/.*docker\///"'
-    local c_id=$(p_compose exec -T kong bash -c "$cmd" | tr -d '\r')
-    docker commit $c_id $GOJIRA_SNAPSHOT || exit 1
-    >&2 echo "Created snapshot: $GOJIRA_SNAPSHOT"
+    snapshot $EXTRA_ARGS
     ;;
   snapshot\?)
     snapshot_image_name $EXTRA_ARGS
     query_image $GOJIRA_SNAPSHOT || err "$GOJIRA_SNAPSHOT not found"
     ;;
+  snapshot\?\?)
+    snapshot_image_name
+    query_image $GOJIRA_BASE_SNAPSHOT || err "$GOJIRA_BASE_SNAPSHOT not found"
+    ;;
   snapshot\!)
     snapshot_image_name $EXTRA_ARGS
-    docker rmi $GOJIRA_SNAPSHOT || exit 1
+    query_image $GOJIRA_SNAPSHOT && docker rmi $GOJIRA_SNAPSHOT
+    ;;
+  snapshot\!\!)
+    snapshot_image_name
+    query_image $GOJIRA_SNAPSHOT && docker rmi $GOJIRA_SNAPSHOT
+    query_image $GOJIRA_BASE_SNAPSHOT && docker rmi $GOJIRA_BASE_SNAPSHOT
     ;;
   logs)
     p_compose logs -f --tail=100 $EXTRA_ARGS
@@ -576,18 +827,32 @@ main() {
           echo; roar; echo
       fi
     ;;
+  lay)
+    image_name
+    if [[ "$GOJIRA_USE_SNAPSHOT" == 1 ]]; then
+      snapshot_image_name
+      set_snapshot_image_name
+    fi
+    p_compose config $EXTRA_ARGS
+    ;;
   version)
-    echo $GOJIRA $GOJIRA_VERSION
+    echo $GOJIRA $GOJIRA_VERSION ${GOJIRA_ROARS[-1]}
     ;;
   nuke)
-    docker rm -fv $($0 ps -aq)
+    # Do not show docker rm error when there's nothing
+
+    local stuff=$($0 ps -aq $EXTRA_ARGS)
+    [[ -n $stuff ]] && docker rm -fv $stuff
     docker network prune -f
     [ -n "$FORCE" ] && rm -fr $GOJIRA_KONGS/* ;
     echo; (booom | sed -e 's/^/          /'); echo
     ;;
   *)
-    usage
-    exit 1
+    if ! hash gojira-$ACTION &> /dev/null; then
+      usage
+      exit 1
+    fi
+    shift; source gojira-$ACTION
     ;;
   esac
 }

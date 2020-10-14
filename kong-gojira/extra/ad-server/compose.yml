@@ -1,0 +1,13 @@
+version: '3.5'
+services:
+  test-ad-server:
+    image: nginx:1.17.3-alpine
+    # run as privileged to workaround this issue
+    # set_nt_acl_no_snum: fset_nt_acl returned NT_STATUS_ACCESS_DENIED
+    privileged: true
+    ports:
+      - "389:389"
+      - "636:636"
+    volumes:
+       - ${AD_SERVER_PATH}:/setup/
+       - ${AD_SERVER_PATH}/ssl/:/var/lib/samba/private/tls/
