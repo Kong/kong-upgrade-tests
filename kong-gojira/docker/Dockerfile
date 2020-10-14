@@ -29,17 +29,17 @@ RUN apt-get update && \
 ARG LUAROCKS
 ARG OPENSSL
 ARG OPENRESTY
-ARG OPENRESTY_PATCHES
+ARG KONG_NGX_MODULE
+ARG KONG_BUILD_TOOLS
 
 ENV BUILD_PREFIX=/build
 ENV OPENSSL_INSTALL=${BUILD_PREFIX}/openssl
 ENV OPENRESTY_INSTALL=${BUILD_PREFIX}/openresty
 ENV LUAROCKS_INSTALL=${BUILD_PREFIX}/luarocks
 
-ARG KONG_NGX_MODULE=447bbf8
-ARG BUILD_TOOLS=a229317
 RUN mkdir -p ${BUILD_PREFIX}
 COPY build.sh ${BUILD_PREFIX}
+COPY silent ${BUILD_PREFIX}/silent
 RUN ${BUILD_PREFIX}/build.sh
 
 ENV OPENSSL_DIR=${OPENSSL_INSTALL}
@@ -55,12 +55,12 @@ RUN apt-get update && \
         jq \
         httpie \
         iputils-ping \
-        cpanminus
+        cpanminus \
+        iproute2
 
 RUN cpanm --notest Test::Nginx
 RUN cpanm --notest local::lib
 
 COPY 42-kong-envs.sh /etc/profile.d/
-COPY follow-log.sh /bin/follow-kong-log
 
 WORKDIR /kong

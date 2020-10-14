@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+
+OIDC_PATH=$GOJIRA_PATH/extra/oidc
+OIDC_BUILD_IMAGE=${OIDC_BUILD_IMAGE:-0}
+
+
+_OIDC_O_ARGS=()
+
+
+oidc_args() {
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --oidc-idp-name)
+        OIDC_IDP_NAME="$2"
+        shift
+        ;;
+      --oidc-port)
+        OIDC_PORT=$2
+        shift
+        ;;
+      --oidc-client-id)
+        OIDC_CLIENT_ID="$2"
+        shift
+        ;;
+      --oidc-client-secret)
+        OIDC_CLIENT_SECRET="$2"
+        shift
+        ;;
+      --oidc-redirect-host)
+        OIDC_REDIRECT_HOST="$2"
+        shift
+        ;;
+      --oidc-redirect-uri)
+        OIDC_REDIRECT_URI="$2"
+        shift
+        ;;
+      up|build)
+        OIDC_BUILD_IMAGE=1
+        _OIDC_O_ARGS+=("$1")
+        ;;
+      *)
+        _OIDC_O_ARGS+=("$1")
+        ;;
+    esac
+    shift
+  done
+}
+
+
+oidc_setup() {
+  if [[ ! -d "$GOJIRA_KONG_PATH" ]]; then create_kong; fi
+
+  oidc_args "$@"
+
+  # Only build the image when 'build' or 'up' is requested
+  if [ $OIDC_BUILD_IMAGE -eq 1 ]; then
+    export OIDC_IDP_NAME="${OIDC_IDP_NAME:-http://oidc-provider}"
+    export OIDC_PORT=${OIDC_PORT:-9000}
+    export OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-foo}
+    export OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:-bar}
+    OIDC_REDIRECT_HOST=${OIDC_REDIRECT_HOST:-localhost}
+    export OIDC_REDIRECT_URI="${OIDC_REDIRECT_URI:-http://${OIDC_REDIRECT_HOST}:8000/oidc}"
+
+    >&2 echo ""
+    >&2 echo "Enabling Qlik Simple OIDC provider"
+    >&2 echo ""
+    >&2 echo "==============================================="
+    >&2 echo " * IDP Name:      $OIDC_IDP_NAME  "
+    >&2 echo " * Port:          $OIDC_PORT"
+    >&2 echo " * Client ID:     $OIDC_CLIENT_ID "
+    >&2 echo " * Client Secret: $OIDC_CLIENT_SECRET"
+    >&2 echo " * Redirect URI:  $OIDC_REDIRECT_URI"
+    >&2 echo " * OIDC Config:   http ${OIDC_PORT}/.well-known/openid-configuration"
+    >&2 echo "==============================================="
+    >&2 echo ""
+    >&2 echo "+-----------------------+----------------------------+"
+    >&2 echo "|        E-Mail         |          Groups            |"
+    >&2 echo "+-----------------------+----------------------------+"
+    >&2 echo "| harley@qlik.example   | Everyone, Sales            |"
+    >&2 echo "| barb@qlik.example     | Everyone, Support          |"
+    >&2 echo "| quinn@qlik.example    | Everyone, Accounting       |"
+    >&2 echo "| sim@qlik.example      | Everyone, Accounting       |"
+    >&2 echo "| phillie@qlik.example  | Everyone, Marketing, Sales |"
+    >&2 echo "| peta@qlik.example     | Everyone, Engineering      |"
+    >&2 echo "| marne@qlik.example    | Everyone, Marketing        |"
+    >&2 echo "| sibylla@qlik.example  | Everyone, Accounting       |"
+    >&2 echo "| evan@qlik.example     | Everyone, Engineering      |"
+    >&2 echo "| franklin@qlik.example | Everyone, Sales            |"
+    >&2 echo "+-----------------------+----------------------------+"
+    >&2 echo ""
+    >&2 echo "Password for all users is: Password1!"
+    >&2 echo ""
+
+    # Create a configuration file that will be associated with the OIDC image
+    cat << EOF > $OIDC_PATH/.oidc-config.json
+{
+  "idp_name": "${OIDC_IDP_NAME}",
+  "port": ${OIDC_PORT},
+  "client_config": [
+    {
+      "client_id": "${OIDC_CLIENT_ID}",
+      "client_secret": "${OIDC_CLIENT_SECRET}",
+      "redirect_uris": [ "${OIDC_REDIRECT_URI}" ]
+    }
+  ],
+  "claim_mapping": {
+    "openid": [ "sub" ],
+    "email": [ "email", "email_verified" ],
+    "profile": [ "name", "nickname" ]
+  }
+}
+EOF
+
+    docker build -f $OIDC_PATH/Dockerfile -t gojira-oidc $OIDC_PATH
+    add_egg $OIDC_PATH/oidc-compose.yml.sh
+  fi
+
+  main "${_OIDC_O_ARGS[@]}"
+}
+
+
+oidc_setup "$@"

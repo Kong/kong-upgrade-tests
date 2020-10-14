@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
 
+source ${BUILD_PREFIX}/silent/silent-run.sh
+
 # Add here any hack necessary to get a precise version of kong built.
 
-BUILD_TOOLS_INSTALL=${BUILD_PREFIX}/openresty-build-tools
-BUILD_TOOLS_CMD=${BUILD_TOOLS_INSTALL}/kong-ngx-build
+BUILD_TOOLS_INSTALL=${BUILD_PREFIX}/kong-build-tools
+BUILD_TOOLS_DIR=${BUILD_TOOLS_INSTALL}/openresty-build-tools
+BUILD_TOOLS_CMD=${BUILD_TOOLS_DIR}/kong-ngx-build
 BUILD_LOG=${BUILD_PREFIX}/build.log
 
 KONG_NGX_MODULE_INSTALL=${BUILD_PREFIX}/lua-kong-nginx-module
 
+# Set this to download lua-kong-nginx-module manually
+# some versions of openresty-build-tools won't work with versions
+# so it will restort to this
+NGX_MODULE_MANUAL=0
+
 function download_build_tools {
   mkdir -p ${BUILD_TOOLS_INSTALL}
-  curl -sSL https://github.com/kong/openresty-build-tools/archive/${BUILD_TOOLS}.tar.gz \
+  curl -sSL https://github.com/Kong/kong-build-tools/archive/${KONG_BUILD_TOOLS}.tar.gz \
             | tar -C ${BUILD_TOOLS_INSTALL} -xz --strip-components=1
 }
 
@@ -24,63 +32,49 @@ function make_kong_ngx_module {
   make -C ${KONG_NGX_MODULE_INSTALL} LUA_LIB_DIR=${OPENRESTY_INSTALL}/lualib install
 }
 
-function init_timer {
-  local sp="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-
-  local sc=0
-
-  while true; do
-    >&2 printf "\033[1K\r${sp:$sc % 24:3} $1 "
-    ((sc+=3))
-    sleep 0.1
-  done
-}
-
 function build {
   local flags=(
     "--prefix    ${BUILD_PREFIX}"
     "--openresty ${OPENRESTY}"
     "--openssl   ${OPENSSL}"
     "--luarocks  ${LUAROCKS}"
-    # We are building lua-kong-nginx-module manually and including it with
-    # --add-module on compatible versions.
-    "--no-kong-nginx-module"
   )
+
   local after=()
 
   if version_lte $OPENSSL 1.0; then
     flags+=("--no-openresty-patches")
   fi
 
-  if version_gte $OPENSSL 1.1; then
-    # Set openresty patches branch
-    flags+=("--openresty-patches ${OPENRESTY_PATCHES:-master}")
+  # Hack for 0.36 ...
+  if version_lt $OPENRESTY 1.15; then
+    KONG_NGX_MODULE=0.0.4
+  fi
 
-    # Add lua-kong-nginx-module and after-party
-    download_lua-kong-nginx-module
-    flags+=("--add-module $KONG_NGX_MODULE_INSTALL")
-    after+=(make_kong_ngx_module)
+  if version_gte $OPENSSL 1.1; then
+    if [[ $NGX_MODULE_MANUAL == 1 ]]; then
+      # We are building lua-kong-nginx-module manually and including it with
+      # Add lua-kong-nginx-module and after-party
+      download_lua-kong-nginx-module
+      flags+=("--no-kong-nginx-module")
+      flags+=("--add-module $KONG_NGX_MODULE_INSTALL")
+      # Stream part not compatible with open resty < 1.5
+      # I know we should be pinning these versions but this is a quickfix
+      if [[ -d $KONG_NGX_MODULE_INSTALL/stream ]] && version_gte $OPENRESTY 1.15; then
+        flags+=("--add-module $KONG_NGX_MODULE_INSTALL/stream")
+      fi
+      after+=(make_kong_ngx_module)
+    else
+      flags+=("--kong-nginx-module $KONG_NGX_MODULE")
+    fi
   fi
 
   local cmd="${BUILD_TOOLS_CMD} ${flags[*]}"
   >&2 echo $cmd
 
-  local timer_pid res
-  init_timer "Building base dependencies" &
-  timer_pid=$!
-  disown
-
-  $cmd &> ${BUILD_LOG}
-  res=$?
-
-  kill $timer_pid &> /dev/null
-  >&2 printf "\n"
-
-  if [[ ! "$res" == 0 ]]; then
-    >&2 echo "Error building base dependencies:"
-    >&2 tail -n 10 ${BUILD_LOG}
-    exit 1
-  fi
+  start_silent_run "Building base dependencies"
+    $cmd
+  stop_silent_run
 
   >&2 tail -n 2 ${BUILD_LOG}
 

@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+AD_SERVER_PATH=$(dirname ${BASH_SOURCE[0]})/ad-server
+_AD_O_ARGS=()
+
+REMOTE_LDAP=${REMOTE_LDAP:-0}
+
+KONG_BRAIN_IMMUNITY_IMAGE_NAME=${KONG_BRAIN_IMMUNITY_IMAGE_NAME:-kong-docker-kong-brain-internal-builds.bintray.io/kong-brain:2.0.0-alpha4}
+
+ad_server_generate_tls_certs() {
+  mkdir -p $AD_SERVER_PATH/ssl
+  pushd $AD_SERVER_PATH/ssl
+    openssl req -newkey rsa:2048 -keyout myKey.pem -nodes -x509 -days 365 -out myCert.pem \
+        -subj '/CN=localhost.ldap.mashape.com' -extensions EXT -config <( \
+        printf "[dn]\nCN=localhost.ldap.mashape.com\n[req]\ndistinguished_name = dn\n[EXT]\nsubjectAltName=DNS:localhost.ldap.mashape.com,DNS:ad-server.ldap.mashape.com,DNS:ad-server\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth")
+    chmod 600 myKey.pem
+    chmod 600 myCert.pem
+  popd
+}
+
+ad_server_args() {
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --remote)
+        REMOTE_LDAP=1
+        ;;
+      *)
+        _AD_O_ARGS+=("$1")
+        ;;
+    esac
+    shift
+  done
+}
+
+ad_server_setup() {
+  export KONG_BRAIN_IMMUNITY_IMAGE_NAME
+  export KONG_PASSWORD=handyshake
+  export KONG_ADMIN_TOKEN=$KONG_PASSWORD
+  export AD_SERVER_PATH
+
+  export KONG_ADMIN_GUI_AUTH=ldap-auth-advanced
+  export KONG_PLUGINS=bundled,ldap-auth-advanced
+
+  if [[ $REMOTE_LDAP == 1 ]]; then
+    export KONG_ADMIN_GUI_AUTH_CONF_POSTGRES=$(<$AD_SERVER_PATH/test-ldap.json)
+    export KONG_ADMIN_GUI_AUTH_CONF_CASSANDRA=$(<$AD_SERVER_PATH/test-ldap.json)
+  else
+    export KONG_ADMIN_GUI_AUTH_CONF_POSTGRES=$(<$AD_SERVER_PATH/custom-ldap-config.json)
+    export KONG_ADMIN_GUI_AUTH_CONF_CASSANDRA=$(<$AD_SERVER_PATH/custom-ldap-config.json)
+  fi
+
+  add_egg $AD_SERVER_PATH/compose.yml
+
+  case $1 in
+    configure)
+      ad_server_generate_tls_certs
+      p_compose exec -T test-ad-server chown root:root /var/lib/samba/private/tls/myKey.pem
+      p_compose exec -T test-ad-server chown root:root /var/lib/samba/private/tls/myCert.pem
+      p_compose exec -T test-ad-server sh setup/setup.sh
+      p_compose exec -T test-ad-server bash setup/add-seed-data.sh
+      p_compose exec -T test-ad-server samba -D
+      sleep 5
+      exit
+      ;;
+    help)
+      cat << EOF
+Usage: $GOJIRA ad-server action
+
+Commands:
+  configure     Configure tls certs and seed data
+
+  up            Start kong with an ad-server
+
+EOF
+      exit
+      ;;
+  esac
+
+
+  main "${_AD_O_ARGS[@]}"
+}
+
+ad_server_setup "$@"

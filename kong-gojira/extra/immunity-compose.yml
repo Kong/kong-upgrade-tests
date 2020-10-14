@@ -1,0 +1,118 @@
+version: '3.5'
+services:
+  collector-database:
+    image: postgres:12
+    environment:
+      - POSTGRES_USER=kong
+      - POSTGRES_DB=collector
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "kong", "-d", "collector"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+    networks:
+      - gojira
+    labels:
+      com.konghq.gojira: True
+
+  collector-migrations:
+    image: ${KONG_BRAIN_IMMUNITY_IMAGE_NAME}
+    command: >
+      flask db upgrade
+    environment:
+      - SQLALCHEMY_DATABASE_URI=postgresql://kong@collector-database:5432/collector
+    depends_on:
+      - collector-database
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+    restart: on-failure
+    networks:
+      - gojira
+    labels:
+      com.konghq.gojira: True
+
+  collector:
+    image: ${KONG_BRAIN_IMMUNITY_IMAGE_NAME}
+    command: >
+      gunicorn -b 0.0.0.0:5000 --workers=4 --worker-class gevent --keep-alive 120 --log-level info --access-logfile - --log-file - --reload "collector:create_app()"
+    environment:
+      - KONG_HOST=${GOJIRA_TARGET:-kong}
+      - KONG_PORT=8001
+      - KONG_PROTOCOL=${KONG_PROTOCOL:-http}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - SQLALCHEMY_DATABASE_URI=postgresql://kong@collector-database:5432/collector
+      - KONG_ADMIN_TOKEN=${KONG_PASSWORD:-CHANGE_ME}
+    ports:
+      - '5000:5000'
+    depends_on:
+      - redis
+      - collector-database
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+    networks:
+      - gojira
+    labels:
+      com.konghq.gojira: True
+
+  celery-beat:
+    image: ${KONG_BRAIN_IMMUNITY_IMAGE_NAME}
+    command: bash -c "celery beat -l info -A collector.scheduler.celery"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - collector-database
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+    networks:
+      - gojira
+    labels:
+      com.konghq.gojira: True
+
+  celery-worker:
+    image: ${KONG_BRAIN_IMMUNITY_IMAGE_NAME}
+    command: celery worker -l info -A collector.scheduler.celery --concurrency=1
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - SQLALCHEMY_DATABASE_URI=postgresql://kong@collector-database:5432/collector
+      - KONG_HOST=${GOJIRA_TARGET:-kong}
+      - KONG_PORT=8001
+      - KONG_PROTOCOL=${KONG_PROTOCOL:-http}
+      - KONG_ADMIN_TOKEN=${KONG_ADMIN_TOKEN}
+    depends_on:
+      - redis
+      - collector-database
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+    networks:
+      - gojira
+    labels:
+      com.konghq.gojira: True
+
+  auto-train:
+    image: ${KONG_BRAIN_IMMUNITY_IMAGE_NAME}
+    command: bash -c "python auto-train.py"
+    depends_on:
+      - collector
+    networks:
+      - gojira
+    labels:
+      com.konghq.gojira: True

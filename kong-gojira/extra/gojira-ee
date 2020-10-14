@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+_EE_O_ARGS=()
+
+EE_OIDC_ENABLED=${EE_OIDC_ENABLED:-0}
+
+EE_PATH=$(dirname ${BASH_SOURCE[0]})/ee
+
+ee_args() {
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --oidc)
+        EE_OIDC_ENABLED=1
+        ;;
+      *)
+        _EE_O_ARGS+=("$1")
+        ;;
+    esac
+    shift
+  done
+}
+
+ee_setup() {
+
+  [[ -n $GOJIRA_IMAGE ]] || err "[err] ee mode is useless without GOJIRA_IMAGE or --image"
+
+  get_envs
+
+  if [[ ! -d "$GOJIRA_KONG_PATH" ]]; then create_kong; fi
+
+  export KONG_PASSWORD=${KONG_PASSWORD:-handyshake}
+
+  add_egg $EE_PATH/compose.yml.sh
+
+  ee_args "$@"
+
+  if [[ "$EE_OIDC_ENABLED" == 1 ]]; then
+    export KONG_PORTAL_AUTH_CONF_CASSANDRA=$(<$EE_PATH/portal-auth-oidc-cassandra.json)
+    export KONG_PORTAL_AUTH_CONF_POSTGRES=$(<$EE_PATH/portal-auth-oidc-postgres.json)
+    export KONG_PORTAL_AUTH=openid-connect
+  fi
+  main "${_EE_O_ARGS[@]}"
+}
+
+ee_setup "$@"
