@@ -195,6 +195,10 @@ main() {
         run_json_commands "before/$(basename "$file")" "$file"
     done
 
+    msg "--------------------------------------------------"
+    msg "Installing $target_repo $target_version"
+    msg "--------------------------------------------------"
+
     install_kong $target_repo $target_version
     image=$(t_gojira snapshot?)
 
@@ -330,7 +334,6 @@ install_kong() {
       image=$(./kong-gojira/gojira.sh image? --repo $repo -t $version)
     fi
 
-    msg "Installing Kong version $version"
     if [[ -z $image ]]; then
         # Do build!
         msg "Building base dependencies for $repo $version"
@@ -338,7 +341,14 @@ install_kong() {
         image=$(./kong-gojira/gojira.sh image -V --repo $repo -t $version)
     fi
 
-    ./kong-gojira/gojira.sh up --git-https --repo $repo -t $version --alone --image $image
+    if [ $version = 1.4.0 ]; then
+      msg "Old version of Kong detected. Hardcoding env vars and installing lua-resty-openssl manually"
+      LUAROCKS=3.2.1 OPENSSL=1.1.1d OPENRESTY=1.15.8.2 ./kong-gojira/gojira.sh up --git-https --repo $repo -t $version --alone --image $image
+      ./kong-gojira/gojira.sh run --repo $repo -t $version luarocks install lua-resty-openssl || exit 1
+    else
+      ./kong-gojira/gojira.sh up --git-https --repo $repo -t $version --alone --image $image
+    fi
+
     ./kong-gojira/gojira.sh run --repo $repo -t $version make dev || exit 1
     ./kong-gojira/gojira.sh snapshot --repo $repo -t $version
     ./kong-gojira/gojira.sh down --repo $repo -t $version
