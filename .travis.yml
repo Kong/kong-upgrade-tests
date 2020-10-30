@@ -19,57 +19,65 @@ env:
     - GOJIRA_VERSION=v0.3.0
     - TEST_REPO=kong
   matrix:
+# Postgres:
     - TAG_OR_BRANCH_FROM=0.14.1
       TAG_OR_BRANCH_TO=1.4.0
-      UPATH_TO=1.4.0
+      UPATH=0.14.1_1.4.0
       DATABASE=postgres
     - TAG_OR_BRANCH_FROM=1.0.0
       TAG_OR_BRANCH_TO=1.4.0
-      UPATH_TO=1.4.0
-      DATABASE=postgres
-    - TAG_OR_BRANCH_FROM=1.0.0
-      TAG_OR_BRANCH_TO=1.4.0
-      UPATH_TO=1.4.0
+      UPATH=1.0.0_1.4.0
       DATABASE=postgres
     - TAG_OR_BRANCH_FROM=1.1.0
       TAG_OR_BRANCH_TO=1.4.0
-      UPATH_TO=1.4.0
+      UPATH=1.1.0_1.4.0
+      DATABASE=postgres
+    - TAG_OR_BRANCH_FROM=1.2.0
+      TAG_OR_BRANCH_TO=1.4.0
+      UPATH=1.2.0_1.4.0
       DATABASE=postgres
     #- TAG_OR_BRANCH_FROM=1.3.0
     #  TAG_OR_BRANCH_TO=1.4.0
-    #  UPATH_TO=1.4.0
+    #  UPATH=1.3.0_1.4.0
     #  DATABASE=postgres
-    - TAG_OR_BRANCH_FROM=2.1.4
-      TAG_OR_BRANCH_TO=release/2.2.0
-      UPATH_FROM=2.1.3
-      UPATH_TO=2.2.0
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.1.0
+      UPATH=base_proxy
       DATABASE=postgres
-      EXTRA_OPTS=--force-migrating
+    - TAG_OR_BRANCH_FROM=2.1.4
+      TAG_OR_BRANCH_TO=2.2.0
+      UPATH=2.1.3_2.2.0
+      DATABASE=postgres
+
+# Cassandra:
     - TAG_OR_BRANCH_FROM=0.14.1
       TAG_OR_BRANCH_TO=1.4.0
+      UPATH=0.14.1_1.4.0
       DATABASE=cassandra
     - TAG_OR_BRANCH_FROM=1.0.0
       TAG_OR_BRANCH_TO=1.4.0
-      UPATH_TO=1.4.0
+      UPATH=1.0.0_1.4.0
       DATABASE=cassandra
     - TAG_OR_BRANCH_FROM=1.1.0
       TAG_OR_BRANCH_TO=1.4.0
-      UPATH_TO=1.4.0
+      UPATH=1.1.0_1.4.0
       DATABASE=cassandra
     - TAG_OR_BRANCH_FROM=1.2.0
       TAG_OR_BRANCH_TO=1.4.0
-      UPATH_TO=1.4.0
+      UPATH=1.2.0_1.4.0
       DATABASE=cassandra
     #- TAG_OR_BRANCH_FROM=1.3.0
     #  TAG_OR_BRANCH_TO=1.4.0
-    #  UPATH_TO=1.4.0
+    #  UPATH=1.3.0_1.4.0
     #  DATABASE=cassandra
-    - TAG_OR_BRANCH_FROM=2.1.4
-      TAG_OR_BRANCH_TO=release/2.2.0
-      UPATH_FROM=2.1.3
-      UPATH_TO=2.2.0
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.1.0
+      UPATH=base_proxy
       DATABASE=cassandra
-      EXTRA_OPTS=--force-migrating
+    - TAG_OR_BRANCH_FROM=2.1.4
+      TAG_OR_BRANCH_TO=2.2.0
+      UPATH=2.1.3_2.2.0
+      DATABASE=cassandra
 
 script:
-  - ./test.sh -b $TEST_REPO:$TAG_OR_BRANCH_FROM -t $TEST_REPO:$TAG_OR_BRANCH_TO -d $DATABASE $EXTRA_OPTS "$TRAVIS_BUILD_DIR/upgrade_paths/${UPATH_FROM-$TAG_OR_BRANCH_FROM}_${UPATH_TO-$TAG_OR_BRANCH_TO}/"
+    - ./test.sh -b $TEST_REPO:$TAG_OR_BRANCH_FROM -t $TEST_REPO:$TAG_OR_BRANCH_TO -d $DATABASE $EXTRA_OPTS "$TRAVIS_BUILD_DIR/upgrade_paths/$UPATH/"
