@@ -1,0 +1,58 @@
+[
+  [ "test_service",
+    [ "admin", "POST", "/services", {
+      "name": "test_service",
+      "url": "https://httpbin.org/anything"
+    } ],
+    [ 201, {
+      "name": "test_service",
+      "host": "httpbin.org",
+      "path": "/anything",
+      "protocol": "https"
+    } ]
+  ],
+  [ "test_route",
+    [ "admin", "POST", "/services/test_service/routes", {
+      "hosts": [ "test_service.dev" ]
+    } ],
+    [ 201, {
+      "hosts": [ "test_service.dev" ]
+    } ]
+  ],
+  [ "key-auth plugin",
+    [ "admin", "POST", "/services/test_service/plugins", {
+      "name": "key-auth"
+    } ],
+    [ 201 ]
+  ],
+
+  [ "test_consumer",
+    [ "admin", "POST", "/consumers", { "username": "test_consumer" } ],
+    [ 201, { "username": "test_consumer" } ]
+  ],
+
+  [ "key_auth credentials",
+    [ "admin", "POST", "/consumers/test_consumer/key-auth", {
+      "key": "secret"
+    } ],
+    [ 201, {
+      "key": "secret"
+    } ]
+  ],
+
+  [ "test key-auth blocks requests without API key before migrating",
+    [ "proxy", "GET", "/request", "", { "Host": "test_service.dev" } ],
+    [ 401,
+      { "message": "No API key found in request" },
+      { "WWW-Authenticate": "Key realm=\"kong\"" }
+    ]
+  ],
+
+  [ "test key-auth does not block with API key before migrating",
+    [ "proxy", "GET", "/request", "", {
+      "Host": "test_service.dev",
+      "apikey": "secret"
+    } ],
+    [ 200 ]
+  ]
+]

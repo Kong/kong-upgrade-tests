@@ -1,0 +1,33 @@
+[
+  [ "test key-auth blocks requests without API key while migrating in old node",
+    [ "proxy", "GET", "/request", "", { "Host": "test_service.dev" } ],
+    [ 401,
+      { "message": "No API key found in request" },
+      { "WWW-Authenticate": "Key realm=\"kong\"" }
+    ]
+  ],
+
+  [ "test key-auth does not block with API key while migrating in old node",
+    [ "proxy", "GET", "/request", "", {
+      "Host": "test_service.dev",
+      "apikey": "secret"
+    } ],
+    [ 200 ]
+  ],
+
+  [ "test key-auth blocks requests without API key while migrating in new node",
+    [ "proxy_2", "GET", "/request", "", { "Host": "test_service.dev" } ],
+    [ 401,
+      { "message": "No API key found in request" },
+      { "WWW-Authenticate": "Key realm=\"kong\"" }
+    ]
+  ],
+
+  [ "test key-auth in allows requests with API key while migrating in new node",
+    [ "proxy_2", "GET", "/request", "", {
+      "Host": "test_service.dev",
+      "apikey": "secret"
+    } ],
+    [ 200 ]
+  ]
+]

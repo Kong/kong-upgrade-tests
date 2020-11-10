@@ -40,11 +40,35 @@ env:
     #  TAG_OR_BRANCH_TO=1.4.0
     #  UPATH=1.3.0_1.4.0
     #  DATABASE=postgres
+
+    # Postgres workspaces updating from 2.0.0 to everything up to 2.2.0
     - TAG_OR_BRANCH_FROM=2.0.0
       TAG_OR_BRANCH_TO=2.1.0
-      UPATH=base_proxy
+      UPATH=workspaces
       DATABASE=postgres
-    - TAG_OR_BRANCH_FROM=2.1.4
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.1.1
+      UPATH=workspaces
+      DATABASE=postgres
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.1.2
+      UPATH=workspaces
+      DATABASE=postgres
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.1.3
+      UPATH=workspaces
+      DATABASE=postgres
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.1.4
+      UPATH=workspaces
+      DATABASE=postgres
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.2.0
+      UPATH=workspaces
+      DATABASE=postgres
+
+    # Other Postgres 2.2.0 update tests
+    - TAG_OR_BRANCH_FROM=2.1.3
       TAG_OR_BRANCH_TO=2.2.0
       UPATH=2.1.3_2.2.0
       DATABASE=postgres
@@ -70,14 +94,38 @@ env:
     #  TAG_OR_BRANCH_TO=1.4.0
     #  UPATH=1.3.0_1.4.0
     #  DATABASE=cassandra
+
+    # Cassandra base updating from 2.0.0 to everything up to 2.2.0
     - TAG_OR_BRANCH_FROM=2.0.0
       TAG_OR_BRANCH_TO=2.1.0
-      UPATH=base_proxy
+      UPATH=workspaces
       DATABASE=cassandra
-    - TAG_OR_BRANCH_FROM=2.1.4
+      EXTRA_OPTS=--skip-migrating
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.1.1
+      UPATH=workspaces
+      DATABASE=cassandra
+      EXTRA_OPTS=--skip-migrating
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.1.2
+      UPATH=workspaces
+      DATABASE=cassandra
+      EXTRA_OPTS=--skip-migrating
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.1.3
+      UPATH=workspaces
+      DATABASE=cassandra
+      EXTRA_OPTS=--skip-migrating
+    - TAG_OR_BRANCH_FROM=2.0.0
+      TAG_OR_BRANCH_TO=2.1.4
+      UPATH=workspaces
+      DATABASE=cassandra
+      EXTRA_OPTS=--skip-migrating
+    - TAG_OR_BRANCH_FROM=2.0.0
       TAG_OR_BRANCH_TO=2.2.0
-      UPATH=2.1.3_2.2.0
+      UPATH=workspaces
       DATABASE=cassandra
+      EXTRA_OPTS=--skip-migrating
 
 script:
     - ./test.sh -b $TEST_REPO:$TAG_OR_BRANCH_FROM -t $TEST_REPO:$TAG_OR_BRANCH_TO -d $DATABASE $EXTRA_OPTS "$TRAVIS_BUILD_DIR/upgrade_paths/$UPATH/"
