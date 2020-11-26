@@ -20,6 +20,7 @@ target_repo=kong
 base_host=base_kong
 target_host=target_kong
 test_suite_dir=
+target_restart=
 ssh_key=$HOME/.ssh/id_rsa
 
 # control variables
@@ -27,7 +28,7 @@ keep=0
 rebuild=0
 ret1=
 ret2=
-force_migrating=0
+skip_migrating=0
 
 export KONG_NGINX_WORKER_PROCESSES=1
 export GOJIRA_KONGS=$cache_dir
@@ -66,8 +67,8 @@ main() {
                 target_version=$2
                 shift
                 ;;
-            -m|--force-migrating)
-                force_migrating=1
+            -sm|--skip-migrating)
+                skip_migrating=1
                 ;;
             -f|--force-git-clone)
                 rm -rf $cache_dir
@@ -145,9 +146,6 @@ main() {
     has_new_migrations $base_repo $base_version
     local base_has_new_migrations=$ret1
 
-    has_new_migrations $target_repo $target_version
-    local target_has_new_migrations=$ret1
-
     install_kong $base_repo $base_version
     image=$(b_gojira snapshot?)
 
@@ -223,12 +221,28 @@ main() {
 
     $root/scripts/diff_migrations $tmp_dir/base.migrations $tmp_dir/target.migrations >&5
 
-    msg_test "TEST kong start (second node): $target_version starts (migrated)"
-    t_gojira run kong start --v >&5 2>&6 \
-        || failed_test "'kong start (second node)' failed with: $?"
-    msg_green "OK"
+    if [[ "$skip_migrating" -eq 1 ]]; then
+        msg "------------------------------------------------------"
+        msg "Skipping 'migrating' tests against $target_version"
+        msg "------------------------------------------------------"
 
-    if [[ ("$target_has_new_migrations" -eq 0) || ("$force_migrating" -eq 1) ]]; then
+        #TEST: finish pending migrations
+        t_gojira run kong migrations finish --v >&5 2>&6 \
+            || failed_test "'kong migrations finish' failed with: $?"
+
+        msg_green "kong migrations finish OK"
+
+        msg_test "TEST kong start (second node): $target_version starts (skipping migrating tests)"
+        t_gojira run kong start --v >&5 2>&6 \
+            || failed_test "'kong start (second node)' failed with: $?"
+        msg_green "second node started"
+
+    else
+        msg_test "TEST kong start (second node): $target_version starts (for migrating tests)"
+        t_gojira run kong start --v >&5 2>&6 \
+            || failed_test "'kong start (second node)' failed with: $?"
+        msg_green "second node started"
+
         msg "------------------------------------------------------"
         msg "Running 'migrating' requests against Kong $target_version"
         msg "------------------------------------------------------"
@@ -238,18 +252,18 @@ main() {
             run_json_commands "migrating/$(basename "$file")" "$file"
         done
 
+        #TEST: finish pending migrations
+        t_gojira run kong migrations finish --v >&5 2>&6 \
+            || failed_test "'kong migrations finish' failed with: $?"
+        msg_green "kong migrations finish OK"
+
         echo
         msg_green "*** Success ***"
         echo
-
-        b_gojira run kong stop --vv \
-            || show_error "failed to stop Kong (first node) with: $?"
-
-        #TEST: finish pending migrations
-        t_gojira run kong migrations finish --v >&5 2>&6 \
-          || failed_test "'kong migrations finish' failed with: $?"
-        msg_green "OK"
     fi
+
+    b_gojira run kong stop --vv \
+       || show_error "failed to stop Kong (first node) with: $?"
 
     msg "------------------------------------------------------"
     msg "Running 'after' requests against Kong $target_version"
