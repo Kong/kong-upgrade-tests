@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 . ./semver.sh
 
+echo "$0"  "$@"
+
 set -x
 
 # kong test instance configuration
@@ -20,7 +22,6 @@ target_repo=kong
 base_host=base_kong
 target_host=target_kong
 test_suite_dir=
-target_restart=
 ssh_key=$HOME/.ssh/id_rsa
 
 # control variables
