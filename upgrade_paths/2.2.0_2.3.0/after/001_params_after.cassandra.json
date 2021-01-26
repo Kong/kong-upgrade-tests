@@ -1,0 +1,6 @@
+[
+  [ "parameters exists in cassandra after migrating",
+    [ "cql", "SELECT * FROM system_schema.tables WHERE keyspace_name='kong' AND table_name = 'parameters';"],
+    [ 1 ]
+  ]
+]
