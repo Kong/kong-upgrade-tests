@@ -364,6 +364,8 @@ install_kong() {
       ./kong-gojira/gojira.sh up --git-https --repo $repo -t $version --alone --image $image
     fi
 
+    ./kong-gojira/gojira.sh run --repo $repo -t $version 'echo "return 0" > /usr/local/bin/go' || exit 1
+    ./kong-gojira/gojira.sh run --repo $repo -t $version 'chmod +x /usr/local/bin/go' || exit 1
     ./kong-gojira/gojira.sh run --repo $repo -t $version make dev || exit 1
     ./kong-gojira/gojira.sh snapshot --repo $repo -t $version
     ./kong-gojira/gojira.sh down --repo $repo -t $version
