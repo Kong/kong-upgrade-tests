@@ -1,0 +1,6 @@
+[
+  [ "parameters does not exist in cassandra",
+    [ "cql", "SELECT * FROM system_schema.tables WHERE keyspace_name='kong' AND table_name = 'parameters';"],
+    [ 0 ]
+  ]
+]
